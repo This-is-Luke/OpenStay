@@ -1,52 +1,37 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { query } from '../database/connection';
-import { AuthenticatedRequest, JwtPayload, ApiResponse } from '../types';
+import { Database } from '../database/supabase';
+import { AuthenticatedRequest, ApiResponse } from '../types';
 
-// Middleware to verify JWT token
-export const authenticateToken = async (
+// Simple session-based authentication middleware
+export const authenticateUser = async (
   req: Request,
   res: Response<ApiResponse>,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    // Check for user ID in headers (you can also use sessions, cookies, etc.)
+    const userId = req.headers['x-user-id'] as string;
 
-    if (!token) {
+    if (!userId) {
       res.status(401).json({
         success: false,
-        message: 'Access token required'
+        message: 'User ID required in headers (x-user-id)'
       });
       return;
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-    
-    // Get user from database
-    const result = await query<{
-      id: string;
-      email: string;
-      first_name: string;
-      last_name: string;
-      wallet_address: string | null;
-      is_host: boolean;
-      is_verified: boolean;
-    }>(
-      'SELECT id, email, first_name, last_name, wallet_address, is_host, is_verified FROM users WHERE id = $1',
-      [decoded.userId]
-    );
+    // Get user from Supabase
+    const users = await Database.select<any>('users', 'id, email, first_name, last_name, wallet_address, is_host, is_verified', { id: userId });
 
-    if (result.rows.length === 0) {
+    if (users.length === 0) {
       res.status(401).json({
         success: false,
-        message: 'Invalid token - user not found'
+        message: 'Invalid user ID - user not found'
       });
       return;
     }
 
-    const user = result.rows[0]!;
+    const user = users[0];
 
     // Add user to request object
     (req as AuthenticatedRequest).user = {
@@ -61,22 +46,6 @@ export const authenticateToken = async (
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({
-        success: false,
-        message: 'Invalid token'
-      });
-      return;
-    }
-    
-    if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({
-        success: false,
-        message: 'Token expired'
-      });
-      return;
-    }
-
     console.error('Authentication error:', error);
     res.status(500).json({
       success: false,
@@ -142,33 +111,20 @@ export const requireVerified = (
   next();
 };
 
-// Optional authentication - doesn't fail if no token
+// Optional authentication - doesn't fail if no user ID
 export const optionalAuth = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const userId = req.headers['x-user-id'] as string;
 
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-      const result = await query<{
-        id: string;
-        email: string;
-        first_name: string;
-        last_name: string;
-        wallet_address: string | null;
-        is_host: boolean;
-        is_verified: boolean;
-      }>(
-        'SELECT id, email, first_name, last_name, wallet_address, is_host, is_verified FROM users WHERE id = $1',
-        [decoded.userId]
-      );
+    if (userId) {
+      const users = await Database.select<any>('users', 'id, email, first_name, last_name, wallet_address, is_host, is_verified', { id: userId });
 
-      if (result.rows.length > 0) {
-        const user = result.rows[0]!;
+      if (users.length > 0) {
+        const user = users[0];
         (req as AuthenticatedRequest).user = {
           id: user.id,
           email: user.email,
@@ -183,7 +139,7 @@ export const optionalAuth = async (
 
     next();
   } catch (error) {
-    // Continue without authentication if token is invalid
+    // Continue without authentication if there's an error
     next();
   }
 };

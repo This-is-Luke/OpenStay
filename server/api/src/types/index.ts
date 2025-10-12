@@ -130,125 +130,12 @@ export interface SearchPropertiesRequest {
   limit?: number;
 }
 
-// Booking Types
-export interface Booking {
-  id: string;
-  guestId: string;
-  propertyId: string;
-  checkIn: Date;
-  checkOut: Date;
-  guestCount: number;
-  nights: number;
-  pricePerNight: number;
-  subtotal: number;
-  cleaningFee: number;
-  serviceFee: number;
-  totalAmount: number;
-  status: BookingStatus;
-  guestMessage?: string;
-  specialRequests?: string;
-  escrowAddress?: string;
-  transactionSignature?: string;
-  paymentToken?: string;
-  escrowCreatedAt?: Date;
-  fundsReleasedAt?: Date;
-  cancelledAt?: Date;
-  cancellationReason?: string;
-  refundAmount?: number;
-  refundTransaction?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateBookingRequest {
-  propertyId: string;
-  checkIn: string;
-  checkOut: string;
-  guestCount: number;
-  guestMessage?: string;
-  specialRequests?: string;
-}
-
-export interface BookingCalculation {
-  nights: number;
-  pricePerNight: number;
-  subtotal: number;
-  cleaningFee: number;
-  serviceFee: number;
-  totalAmount: number;
-}
-
-// Review Types
-export interface Review {
-  id: string;
-  bookingId: string;
-  reviewerId: string;
-  revieweeId: string;
-  propertyId: string;
-  rating: number;
-  title?: string;
-  comment?: string;
-  cleanlinessRating?: number;
-  communicationRating?: number;
-  locationRating?: number;
-  valueRating?: number;
-  reviewType: ReviewType;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateReviewRequest {
-  bookingId: string;
-  rating: number;
-  title?: string;
-  comment?: string;
-  cleanlinessRating?: number;
-  communicationRating?: number;
-  locationRating?: number;
-  valueRating?: number;
-}
-
-// Blockchain Types
-export interface BlockchainTransaction {
-  id: string;
-  bookingId: string;
-  transactionSignature: string;
-  transactionType: TransactionType;
-  amount?: number;
-  tokenMint?: string;
-  fromAddress?: string;
-  toAddress?: string;
-  escrowAddress?: string;
-  status: TransactionStatus;
-  blockHeight?: number;
-  confirmationCount: number;
-  errorMessage?: string;
-  retryCount: number;
-  createdAt: Date;
-  confirmedAt?: Date;
-}
-
 // Enums
 export type WalletType = 'phantom' | 'solflare' | 'backpack' | 'sollet';
 
 export type PropertyType = 'apartment' | 'house' | 'room' | 'studio' | 'villa' | 'cabin' | 'other';
 
 export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
-
-export type BookingStatus = 
-  | 'pending' 
-  | 'payment_required' 
-  | 'paid' 
-  | 'confirmed' 
-  | 'checked_in' 
-  | 'completed' 
-  | 'cancelled';
-
-export type ReviewType = 'guest_to_host' | 'host_to_guest';
-
-export type TransactionType = 'escrow_create' | 'payment_deposit' | 'funds_release' | 'refund';
-
-export type TransactionStatus = 'pending' | 'confirmed' | 'failed';
 
 // API Response Types
 export interface ApiResponse<T = any> {
@@ -277,7 +164,7 @@ export interface PaginationResponse<T> {
 }
 
 // Express Request Extensions
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest<P = any, ResBody = any, ReqBody = any, ReqQuery = any> extends Request<P, ResBody, ReqBody, ReqQuery> {
   user: {
     id: string;
     email: string;
@@ -287,37 +174,4 @@ export interface AuthenticatedRequest extends Request {
     isHost: boolean;
     isVerified: boolean;
   };
-}
-
-// Database Types
-export interface DatabaseConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}
-
-// JWT Types
-export interface JwtPayload {
-  userId: string;
-  iat?: number;
-  exp?: number;
-}
-
-// Solana Types
-export interface EscrowAccount {
-  guest: string;
-  host: string;
-  amount: number;
-  checkInDate: Date;
-  isReleased: boolean;
-  bookingId: string;
-}
-
-export interface SolanaConfig {
-  network: string;
-  rpcUrl: string;
-  programId: string;
-  usdcMint: string;
 }

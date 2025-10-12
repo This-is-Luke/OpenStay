@@ -1,237 +1,127 @@
-import express, { Request, Response } from 'express';
-import authService from '../services/authService';
-import { 
-  validate, 
-  registerSchema, 
-  loginSchema, 
-  connectWalletSchema, 
-  updateProfileSchema 
-} from '../middleware/validation';
-import { authenticateToken } from '../middleware/auth';
-import { 
-  ApiResponse, 
-  CreateUserRequest, 
-  LoginRequest, 
-  ConnectWalletRequest, 
-  UpdateProfileRequest,
-  AuthenticatedRequest 
-} from '../types/index';
+import { Request, Response, NextFunction } from 'express';
+import { Database } from '../database/supabase';
+import { AuthenticatedRequest, ApiResponse } from '../types';
 
-const router = express.Router();
-
-// @route   POST /api/auth/register
-// @desc    Register a new user
-// @access  Public
-router.post('/register', validate(registerSchema), async (req: Request<{}, ApiResponse, CreateUserRequest>, res: Response<ApiResponse>) => {
+// Simple session-based authentication middleware
+export const authenticateUser = async (
+  req: Request,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const result = await authService.register(req.body);
-    
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      data: result
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage.includes('already exists')) {
-      res.status(409).json({
-        success: false,
-        message: errorMessage
-      });
-      return;
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
-  }
-});
+    // Check for user ID in headers
+    const userId = req.headers['x-user-id'] as string;
 
-// @route   POST /api/auth/login
-// @desc    Login user
-// @access  Public
-router.post('/login', validate(loginSchema), async (req: Request<{}, ApiResponse, LoginRequest>, res: Response<ApiResponse>) => {
-  try {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
-    
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: result
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage.includes('Invalid email or password')) {
+    if (!userId) {
       res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: 'User ID required in headers (x-user-id)'
       });
       return;
     }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
-  }
-});
 
-// @route   POST /api/auth/connect-wallet
-// @desc    Connect wallet to user account
-// @access  Private
-router.post('/connect-wallet', authenticateToken, validate(connectWalletSchema), async (req: AuthenticatedRequest<{}, ApiResponse, ConnectWalletRequest>, res: Response<ApiResponse>) => {
-  try {
-    const result = await authService.connectWallet(req.user.id, req.body);
-    
-    res.json({
-      success: true,
-      message: 'Wallet connected successfully',
-      data: result
-    });
-  } catch (error) {
-    console.error('Connect wallet error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage.includes('already connected')) {
-      res.status(409).json({
+    // Get user from Supabase
+    const users = await Database.select<any>('users', 'id, email, first_name, last_name, wallet_address, is_host, is_verified', { id: userId });
+
+    if (users.length === 0) {
+      res.status(401).json({
         success: false,
-        message: errorMessage
+        message: 'Invalid user ID - user not found'
       });
       return;
     }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Failed to connect wallet',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
-  }
-});
 
-// @route   POST /api/auth/disconnect-wallet
-// @desc    Disconnect wallet from user account
-// @access  Private
-router.post('/disconnect-wallet', authenticateToken, async (req: AuthenticatedRequest, res: Response<ApiResponse>) => {
-  try {
-    const result = await authService.disconnectWallet(req.user.id);
-    
-    res.json({
-      success: true,
-      message: 'Wallet disconnected successfully',
-      data: result
-    });
+    const user = users[0];
+
+    // Add user to request object
+    (req as AuthenticatedRequest).user = {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      walletAddress: user.wallet_address || undefined,
+      isHost: user.is_host,
+      isVerified: user.is_verified
+    };
+
+    next();
   } catch (error) {
-    console.error('Disconnect wallet error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    console.error('Authentication error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to disconnect wallet',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      message: 'Authentication failed'
     });
   }
-});
+};
 
-// @route   GET /api/auth/profile
-// @desc    Get user profile
-// @access  Private
-router.get('/profile', authenticateToken, async (req: AuthenticatedRequest, res: Response<ApiResponse>) => {
+// Middleware to check if user has wallet connected
+export const requireWallet = (
+  req: Request,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): void => {
+  const authReq = req as AuthenticatedRequest;
+  
+  if (!authReq.user.walletAddress) {
+    res.status(400).json({
+      success: false,
+      message: 'Wallet connection required for this action'
+    });
+    return;
+  }
+  
+  next();
+};
+
+// Middleware to check if user is a host
+export const requireHost = (
+  req: Request,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): void => {
+  const authReq = req as AuthenticatedRequest;
+  
+  if (!authReq.user.isHost) {
+    res.status(403).json({
+      success: false,
+      message: 'Host privileges required'
+    });
+    return;
+  }
+  
+  next();
+};
+
+// Optional authentication - doesn't fail if no user ID
+export const optionalAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const profile = await authService.getProfile(req.user.id);
-    
-    res.json({
-      success: true,
-      data: profile
-    });
+    const userId = req.headers['x-user-id'] as string;
+
+    if (userId) {
+      const users = await Database.select<any>('users', 'id, email, first_name, last_name, wallet_address, is_host, is_verified', { id: userId });
+
+      if (users.length > 0) {
+        const user = users[0];
+        (req as AuthenticatedRequest).user = {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          walletAddress: user.wallet_address || undefined,
+          isHost: user.is_host,
+          isVerified: user.is_verified
+        };
+      }
+    }
+
+    next();
   } catch (error) {
-    console.error('Get profile error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage === 'User not found') {
-      res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-      return;
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get profile',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
+    // Continue without authentication if there's an error
+    next();
   }
-});
+};
 
-// @route   PUT /api/auth/profile
-// @desc    Update user profile
-// @access  Private
-router.put('/profile', authenticateToken, validate(updateProfileSchema), async (req: AuthenticatedRequest<{}, ApiResponse, UpdateProfileRequest>, res: Response<ApiResponse>) => {
-  try {
-    const result = await authService.updateProfile(req.user.id, req.body);
-    
-    res.json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: result
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage === 'User not found') {
-      res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-      return;
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update profile',
-      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
-  }
-});
-
-// @route   POST /api/auth/verify-token
-// @desc    Verify if token is valid
-// @access  Private
-router.post('/verify-token', authenticateToken, (req: AuthenticatedRequest, res: Response<ApiResponse>) => {
-  res.json({
-    success: true,
-    message: 'Token is valid',
-    data: {
-      user: req.user
-    }
-  });
-});
-
-// @route   POST /api/auth/logout
-// @desc    Logout user (client-side token removal)
-// @access  Private
-router.post('/logout', authenticateToken, (req: AuthenticatedRequest, res: Response<ApiResponse>) => {
-  // In a stateless JWT system, logout is handled client-side
-  // by removing the token from storage
-  res.json({
-    success: true,
-    message: 'Logout successful'
-  });
-});
-
-export default router;

@@ -5,12 +5,13 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
+
 // Import routes
 import authRoutes from './routes/auth';
 import propertyRoutes from './routes/properties';
 
 // Import database
-import { healthCheck } from './database/connection';
+import { healthCheck } from './database/supabase';
 
 // Import types
 import { ApiResponse } from './types';
@@ -125,15 +126,17 @@ class App {
               'POST /api/auth/verify-token': 'Verify JWT token',
               'POST /api/auth/logout': 'Logout user'
             },
-            properties: {
-              'GET /api/properties': 'Search properties',
-              'POST /api/properties': 'Create property (host only)',
+           properties: {
+              'GET /api/properties': 'Search properties with filters',
+              'GET /api/properties/map': 'Get properties for map view with bounds',
+              'POST /api/properties': 'Create property (requires x-user-id header)',
               'GET /api/properties/:id': 'Get property details',
-              'PUT /api/properties/:id': 'Update property (host only)',
-              'DELETE /api/properties/:id': 'Delete property (host only)',
-              'GET /api/properties/:id/availability': 'Check availability',
+              'GET /api/properties/:id/similar': 'Get similar properties',
+              'PUT /api/properties/:id': 'Update property (requires x-user-id header)',
+              'DELETE /api/properties/:id': 'Delete property (requires x-user-id header)',
+              'GET /api/properties/:id/availability': 'Check availability for dates',
               'GET /api/properties/host/:hostId': 'Get host properties',
-              'GET /api/properties/my/listings': 'Get my properties'
+              'GET /api/properties/my/listings': 'Get my properties (requires x-user-id header)'
             }
           },
           documentation: 'https://docs.sol-bnb.com',

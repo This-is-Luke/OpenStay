@@ -1,11 +1,11 @@
-import { query, transaction } from '../database/connection';
+import { Database } from '../database/supabase';
 import { 
   Property, 
   CreatePropertyRequest, 
   UpdatePropertyRequest, 
   SearchPropertiesRequest,
   PaginationResponse 
-} from '../types/index';
+} from '../types';
 
 class PropertyService {
   // Create new property listing
@@ -17,66 +17,42 @@ class PropertyService {
       instantBook, checkInTime, checkOutTime, cancellationPolicy
     } = propertyData;
 
-    return await transaction(async (client) => {
-      // Create property
-      const propertyResult = await client.query<{
-        id: string;
-        host_id: string;
-        title: string;
-        description: string;
-        property_type: string;
-        address: string;
-        city: string;
-        state: string | null;
-        country: string;
-        latitude: number | null;
-        longitude: number | null;
-        price_per_night: string;
-        cleaning_fee: string;
-        service_fee_percentage: string;
-        max_guests: number;
-        bedrooms: number;
-        bathrooms: number;
-        amenities: any;
-        house_rules: any;
-        images: any;
-        is_active: boolean;
-        instant_book: boolean;
-        check_in_time: string;
-        check_out_time: string;
-        cancellation_policy: string;
-        created_at: Date;
-        updated_at: Date;
-      }>(`
-        INSERT INTO properties (
-          host_id, title, description, property_type, address, city, state, country,
-          latitude, longitude, price_per_night, cleaning_fee, max_guests,
-          bedrooms, bathrooms, amenities, house_rules, images,
-          instant_book, check_in_time, check_out_time, cancellation_policy
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
-        RETURNING *
-      `, [
-        hostId, title, description, propertyType, address, city, state, country,
-        latitude, longitude, pricePerNight, cleaningFee || 0, maxGuests,
-        bedrooms || 1, bathrooms || 1, JSON.stringify(amenities || []),
-        JSON.stringify(houseRules || []), JSON.stringify(images),
-        instantBook || false, checkInTime || '15:00', checkOutTime || '11:00',
-        cancellationPolicy || 'moderate'
-      ]);
+    // Prepare data for database
+    const propertyDbData = {
+      host_id: hostId,
+      title,
+      description,
+      property_type: propertyType,
+      address,
+      city,
+      state: state || null,
+      country,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      price_per_night: pricePerNight,
+      cleaning_fee: cleaningFee || 0,
+      max_guests: maxGuests,
+      bedrooms: bedrooms || 1,
+      bathrooms: bathrooms || 1,
+      amenities: JSON.stringify(amenities || []),
+      house_rules: JSON.stringify(houseRules || []),
+      images: JSON.stringify(images),
+      instant_book: instantBook || false,
+      check_in_time: checkInTime || '15:00',
+      check_out_time: checkOutTime || '11:00',
+      cancellation_policy: cancellationPolicy || 'moderate'
+    };
 
-      const property = propertyResult.rows[0]!;
+    // Create property
+    const property = await Database.insert<any>('properties', propertyDbData);
 
-      // Update user to be a host
-      await client.query(
-        'UPDATE users SET is_host = true WHERE id = $1',
-        [hostId]
-      );
+    // Update user to be a host
+    await Database.update('users', hostId, { is_host: true });
 
-      return this.formatProperty(property);
-    });
+    return this.formatProperty(property);
   }
 
-  // Get property by ID
+  // Get property by ID with host info and ratings
   async getPropertyById(propertyId: string, userId?: string): Promise<Property & {
     host: {
       firstName: string;
@@ -88,80 +64,52 @@ class PropertyService {
     reviewCount: number;
     isOwner: boolean;
   }> {
-    const result = await query<{
-      id: string;
-      host_id: string;
-      title: string;
-      description: string;
-      property_type: string;
-      address: string;
-      city: string;
-      state: string | null;
-      country: string;
-      latitude: number | null;
-      longitude: number | null;
-      price_per_night: string;
-      cleaning_fee: string;
-      service_fee_percentage: string;
-      max_guests: number;
-      bedrooms: number;
-      bathrooms: number;
-      amenities: any;
-      house_rules: any;
-      images: any;
-      is_active: boolean;
-      instant_book: boolean;
-      check_in_time: string;
-      check_out_time: string;
-      cancellation_policy: string;
-      created_at: Date;
-      updated_at: Date;
-      host_first_name: string;
-      host_last_name: string;
-      host_profile_image: string | null;
-      host_joined_date: Date;
-      average_rating: string;
-      review_count: string;
-    }>(`
-      SELECT 
-        p.*,
-        u.first_name as host_first_name,
-        u.last_name as host_last_name,
-        u.profile_image as host_profile_image,
-        u.created_at as host_joined_date,
-        COALESCE(AVG(r.rating), 0) as average_rating,
-        COUNT(r.id) as review_count
-      FROM properties p
-      JOIN users u ON p.host_id = u.id
-      LEFT JOIN reviews r ON p.id = r.property_id
-      WHERE p.id = $1 AND p.is_active = true
-      GROUP BY p.id, u.first_name, u.last_name, u.profile_image, u.created_at
-    `, [propertyId]);
+    // Get property with host information
+    const properties = await Database.select<any>(
+      'properties', 
+      `
+        *,
+        users!properties_host_id_fkey (
+          first_name,
+          last_name,
+          profile_image,
+          created_at
+        )
+      `,
+      { id: propertyId, is_active: true }
+    );
 
-    if (result.rows.length === 0) {
+    if (properties.length === 0) {
       throw new Error('Property not found');
     }
 
-    const property = result.rows[0]!;
+    const property = properties[0];
+
+    // Get reviews for this property
+    const reviews = await Database.select<any>('reviews', 'rating', { property_id: propertyId });
     
+    const averageRating = reviews.length > 0 
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+      : 0;
+
     // Check if user is the host
     const isOwner = userId ? property.host_id === userId : false;
 
     return {
       ...this.formatProperty(property),
       host: {
-        firstName: property.host_first_name,
-        lastName: property.host_last_name,
-        profileImage: property.host_profile_image || undefined,
-        joinedDate: property.host_joined_date
+        firstName: property.users.first_name,
+        lastName: property.users.last_name,
+        profileImage: property.users.profile_image || undefined,
+        joinedDate: new Date(property.users.created_at)
       },
-      averageRating: parseFloat(property.average_rating),
-      reviewCount: parseInt(property.review_count),
+      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+      reviewCount: reviews.length,
       isOwner
     };
   }
 
-  // Search properties
+  // Search properties with advanced filtering
   async searchProperties(searchParams: SearchPropertiesRequest): Promise<PaginationResponse<Property & {
     host: {
       firstName: string;
@@ -175,87 +123,8 @@ class PropertyService {
       propertyType, amenities, instantBook, page = 1, limit = 20
     } = searchParams;
 
-    let whereConditions = ['p.is_active = true'];
-    let queryParams: any[] = [];
-    let paramCount = 0;
-
-    // Build dynamic WHERE clause
-    if (city) {
-      paramCount++;
-      whereConditions.push(`LOWER(p.city) LIKE LOWER($${paramCount})`);
-      queryParams.push(`%${city}%`);
-    }
-
-    if (country) {
-      paramCount++;
-      whereConditions.push(`LOWER(p.country) LIKE LOWER($${paramCount})`);
-      queryParams.push(`%${country}%`);
-    }
-
-    if (guests) {
-      paramCount++;
-      whereConditions.push(`p.max_guests >= $${paramCount}`);
-      queryParams.push(guests);
-    }
-
-    if (minPrice) {
-      paramCount++;
-      whereConditions.push(`p.price_per_night >= $${paramCount}`);
-      queryParams.push(minPrice);
-    }
-
-    if (maxPrice) {
-      paramCount++;
-      whereConditions.push(`p.price_per_night <= $${paramCount}`);
-      queryParams.push(maxPrice);
-    }
-
-    if (propertyType) {
-      paramCount++;
-      whereConditions.push(`p.property_type = $${paramCount}`);
-      queryParams.push(propertyType);
-    }
-
-    if (instantBook !== undefined) {
-      paramCount++;
-      whereConditions.push(`p.instant_book = $${paramCount}`);
-      queryParams.push(instantBook);
-    }
-
-    // Check availability if dates provided
-    if (checkIn && checkOut) {
-      whereConditions.push(`
-        NOT EXISTS (
-          SELECT 1 FROM bookings b 
-          WHERE b.property_id = p.id 
-          AND b.status IN ('paid', 'confirmed', 'checked_in')
-          AND (
-            (b.check_in <= $${paramCount + 1} AND b.check_out > $${paramCount + 1}) OR
-            (b.check_in < $${paramCount + 2} AND b.check_out >= $${paramCount + 2}) OR
-            (b.check_in >= $${paramCount + 1} AND b.check_out <= $${paramCount + 2})
-          )
-        )
-      `);
-      queryParams.push(checkIn, checkOut);
-      paramCount += 2;
-    }
-
-    // Amenities filter
-    if (amenities && amenities.length > 0) {
-      paramCount++;
-      whereConditions.push(`p.amenities @> $${paramCount}::jsonb`);
-      queryParams.push(JSON.stringify(amenities));
-    }
-
-    // Pagination
-    const offset = (page - 1) * limit;
-    paramCount += 2;
-    queryParams.push(limit, offset);
-
-    const whereClause = whereConditions.join(' AND ');
-
-    // Main query
-    const searchQuery = `
+    // Build base query
+    let query = `
       SELECT 
         p.*,
         u.first_name as host_first_name,
@@ -265,36 +134,126 @@ class PropertyService {
       FROM properties p
       JOIN users u ON p.host_id = u.id
       LEFT JOIN reviews r ON p.id = r.property_id
-      WHERE ${whereClause}
-      GROUP BY p.id, u.first_name, u.last_name
-      ORDER BY p.created_at DESC
-      LIMIT $${paramCount - 1} OFFSET $${paramCount}
+      WHERE p.is_active = true
     `;
 
-    // Count query for pagination
-    const countQuery = `
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Add search conditions
+    if (city) {
+      conditions.push(`LOWER(p.city) LIKE LOWER($${paramIndex})`);
+      params.push(`%${city}%`);
+      paramIndex++;
+    }
+
+    if (country) {
+      conditions.push(`LOWER(p.country) LIKE LOWER($${paramIndex})`);
+      params.push(`%${country}%`);
+      paramIndex++;
+    }
+
+    if (guests) {
+      conditions.push(`p.max_guests >= $${paramIndex}`);
+      params.push(guests);
+      paramIndex++;
+    }
+
+    if (minPrice) {
+      conditions.push(`p.price_per_night >= $${paramIndex}`);
+      params.push(minPrice);
+      paramIndex++;
+    }
+
+    if (maxPrice) {
+      conditions.push(`p.price_per_night <= $${paramIndex}`);
+      params.push(maxPrice);
+      paramIndex++;
+    }
+
+    if (propertyType) {
+      conditions.push(`p.property_type = $${paramIndex}`);
+      params.push(propertyType);
+      paramIndex++;
+    }
+
+    if (instantBook !== undefined) {
+      conditions.push(`p.instant_book = $${paramIndex}`);
+      params.push(instantBook);
+      paramIndex++;
+    }
+
+    // Check availability if dates provided
+    if (checkIn && checkOut) {
+      conditions.push(`
+        NOT EXISTS (
+          SELECT 1 FROM bookings b 
+          WHERE b.property_id = p.id 
+          AND b.status IN ('paid', 'confirmed', 'checked_in')
+          AND (
+            (b.check_in <= $${paramIndex} AND b.check_out > $${paramIndex}) OR
+            (b.check_in < $${paramIndex + 1} AND b.check_out >= $${paramIndex + 1}) OR
+            (b.check_in >= $${paramIndex} AND b.check_out <= $${paramIndex + 1})
+          )
+        )
+      `);
+      params.push(checkIn, checkOut);
+      paramIndex += 2;
+    }
+
+    // Amenities filter (PostgreSQL JSONB contains)
+    if (amenities && amenities.length > 0) {
+      conditions.push(`p.amenities @> $${paramIndex}::jsonb`);
+      params.push(JSON.stringify(amenities));
+      paramIndex++;
+    }
+
+    // Add conditions to query
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    // Add GROUP BY and ORDER BY
+    query += `
+      GROUP BY p.id, u.first_name, u.last_name
+      ORDER BY p.created_at DESC
+    `;
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    // Execute search query
+    const searchResult = await Database.query<any>(query, params);
+
+    // Count query for pagination (without LIMIT/OFFSET)
+    let countQuery = `
       SELECT COUNT(DISTINCT p.id) as total
       FROM properties p
       JOIN users u ON p.host_id = u.id
-      WHERE ${whereClause}
+      WHERE p.is_active = true
     `;
 
-    const [searchResult, countResult] = await Promise.all([
-      query(searchQuery, queryParams),
-      query(countQuery, queryParams.slice(0, -2)) // Remove limit and offset for count
-    ]);
+    if (conditions.length > 0) {
+      countQuery += ' AND ' + conditions.join(' AND ');
+    }
 
-    const properties = searchResult.rows.map(property => ({
+    const countResult = await Database.query<{ total: string }>(countQuery, params.slice(0, -2));
+
+    // Format results
+    const properties = searchResult.map(property => ({
       ...this.formatProperty(property),
       host: {
         firstName: property.host_first_name,
         lastName: property.host_last_name
       },
-      averageRating: parseFloat(property.average_rating),
+      averageRating: Math.round(parseFloat(property.average_rating) * 10) / 10,
       reviewCount: parseInt(property.review_count)
     }));
 
-    const total = parseInt(countResult.rows[0]?.total || '0');
+    const total = parseInt(countResult[0]?.total || '0');
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -316,23 +275,25 @@ class PropertyService {
     reviewCount: number;
     totalBookings: number;
   })[]> {
-    const result = await query<any>(`
+    const query = `
       SELECT 
         p.*,
         COALESCE(AVG(r.rating), 0) as average_rating,
-        COUNT(r.id) as review_count,
-        COUNT(DISTINCT b.id) as total_bookings
+        COUNT(DISTINCT r.id) as review_count,
+        COUNT(DISTINCT CASE WHEN b.status = 'completed' THEN b.id END) as total_bookings
       FROM properties p
       LEFT JOIN reviews r ON p.id = r.property_id
-      LEFT JOIN bookings b ON p.id = b.property_id AND b.status IN ('completed')
+      LEFT JOIN bookings b ON p.id = b.property_id
       WHERE p.host_id = $1
       GROUP BY p.id
       ORDER BY p.created_at DESC
-    `, [hostId]);
+    `;
 
-    return result.rows.map(property => ({
+    const result = await Database.query<any>(query, [hostId]);
+
+    return result.map(property => ({
       ...this.formatProperty(property),
-      averageRating: parseFloat(property.average_rating),
+      averageRating: Math.round(parseFloat(property.average_rating) * 10) / 10,
       reviewCount: parseInt(property.review_count),
       totalBookings: parseInt(property.total_bookings)
     }));
@@ -350,70 +311,66 @@ class PropertyService {
       checkOutTime, cancellationPolicy, isActive
     } = updateData;
 
-    const result = await query<any>(`
-      UPDATE properties SET
-        title = COALESCE($1, title),
-        description = COALESCE($2, description),
-        price_per_night = COALESCE($3, price_per_night),
-        cleaning_fee = COALESCE($4, cleaning_fee),
-        max_guests = COALESCE($5, max_guests),
-        amenities = COALESCE($6, amenities),
-        house_rules = COALESCE($7, house_rules),
-        images = COALESCE($8, images),
-        instant_book = COALESCE($9, instant_book),
-        check_in_time = COALESCE($10, check_in_time),
-        check_out_time = COALESCE($11, check_out_time),
-        cancellation_policy = COALESCE($12, cancellation_policy),
-        is_active = COALESCE($13, is_active),
-        updated_at = NOW()
-      WHERE id = $14 AND host_id = $15
-      RETURNING *
-    `, [
-      title, description, pricePerNight, cleaningFee, maxGuests,
-      amenities ? JSON.stringify(amenities) : null,
-      houseRules ? JSON.stringify(houseRules) : null,
-      images ? JSON.stringify(images) : null,
-      instantBook, checkInTime, checkOutTime, cancellationPolicy,
-      isActive, propertyId, hostId
-    ]);
+    // Prepare update data
+    const updateFields: any = {};
+    if (title !== undefined) updateFields.title = title;
+    if (description !== undefined) updateFields.description = description;
+    if (pricePerNight !== undefined) updateFields.price_per_night = pricePerNight;
+    if (cleaningFee !== undefined) updateFields.cleaning_fee = cleaningFee;
+    if (maxGuests !== undefined) updateFields.max_guests = maxGuests;
+    if (amenities !== undefined) updateFields.amenities = JSON.stringify(amenities);
+    if (houseRules !== undefined) updateFields.house_rules = JSON.stringify(houseRules);
+    if (images !== undefined) updateFields.images = JSON.stringify(images);
+    if (instantBook !== undefined) updateFields.instant_book = instantBook;
+    if (checkInTime !== undefined) updateFields.check_in_time = checkInTime;
+    if (checkOutTime !== undefined) updateFields.check_out_time = checkOutTime;
+    if (cancellationPolicy !== undefined) updateFields.cancellation_policy = cancellationPolicy;
+    if (isActive !== undefined) updateFields.is_active = isActive;
 
-    if (result.rows.length === 0) {
+    // Check if property belongs to host
+    const properties = await Database.select<any>('properties', 'id', { id: propertyId, host_id: hostId });
+    if (properties.length === 0) {
       throw new Error('Property not found or unauthorized');
     }
 
-    return this.formatProperty(result.rows[0]);
+    // Update property
+    const property = await Database.update<any>('properties', propertyId, updateFields);
+
+    return this.formatProperty(property);
   }
 
-  // Delete property
+  // Delete property (soft delete)
   async deleteProperty(propertyId: string, hostId: string): Promise<{ id: string; deleted: boolean }> {
-    return await transaction(async (client) => {
-      // Check for active bookings
-      const activeBookings = await client.query(
-        'SELECT id FROM bookings WHERE property_id = $1 AND status IN ($2, $3, $4)',
-        [propertyId, 'paid', 'confirmed', 'checked_in']
-      );
+    // Check for active bookings
+    const activeBookings = await Database.select<any>(
+      'bookings', 
+      'id', 
+      { property_id: propertyId }
+    );
 
-      if (activeBookings.rows.length > 0) {
-        throw new Error('Cannot delete property with active bookings');
-      }
+    const hasActiveBookings = activeBookings.some(booking => 
+      ['paid', 'confirmed', 'checked_in'].includes(booking.status)
+    );
 
-      // Soft delete the property
-      const result = await client.query(
-        'UPDATE properties SET is_active = false WHERE id = $1 AND host_id = $2 RETURNING id',
-        [propertyId, hostId]
-      );
+    if (hasActiveBookings) {
+      throw new Error('Cannot delete property with active bookings');
+    }
 
-      if (result.rows.length === 0) {
-        throw new Error('Property not found or unauthorized');
-      }
+    // Check if property belongs to host
+    const properties = await Database.select<any>('properties', 'id', { id: propertyId, host_id: hostId });
+    if (properties.length === 0) {
+      throw new Error('Property not found or unauthorized');
+    }
 
-      return { id: propertyId, deleted: true };
-    });
+    // Soft delete the property
+    await Database.update('properties', propertyId, { is_active: false });
+
+    return { id: propertyId, deleted: true };
   }
 
   // Check property availability
   async checkAvailability(propertyId: string, checkIn: string, checkOut: string): Promise<boolean> {
-    const result = await query<{ is_available: boolean }>(`
+    const query = `
       SELECT 
         CASE 
           WHEN EXISTS (
@@ -428,9 +385,107 @@ class PropertyService {
           ) THEN false
           ELSE true
         END as is_available
-    `, [propertyId, checkIn, checkOut]);
+    `;
 
-    return result.rows[0]?.is_available || false;
+    const result = await Database.query<{ is_available: boolean }>(query, [propertyId, checkIn, checkOut]);
+    return result[0]?.is_available || false;
+  }
+
+  // Get properties by location (for map view)
+  async getPropertiesByLocation(
+    bounds: { north: number; south: number; east: number; west: number },
+    filters?: Partial<SearchPropertiesRequest>
+  ): Promise<Array<{
+    id: string;
+    title: string;
+    latitude: number;
+    longitude: number;
+    pricePerNight: number;
+    averageRating: number;
+    images: string[];
+  }>> {
+    const { north, south, east, west } = bounds;
+
+    let query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.latitude,
+        p.longitude,
+        p.price_per_night,
+        p.images,
+        COALESCE(AVG(r.rating), 0) as average_rating
+      FROM properties p
+      LEFT JOIN reviews r ON p.id = r.property_id
+      WHERE p.is_active = true
+      AND p.latitude IS NOT NULL
+      AND p.longitude IS NOT NULL
+      AND p.latitude BETWEEN $1 AND $2
+      AND p.longitude BETWEEN $3 AND $4
+    `;
+
+    const params = [south, north, west, east];
+    let paramIndex = 5;
+
+    // Add filters
+    if (filters?.guests) {
+      query += ` AND p.max_guests >= $${paramIndex}`;
+      params.push(filters.guests);
+      paramIndex++;
+    }
+
+    if (filters?.minPrice) {
+      query += ` AND p.price_per_night >= $${paramIndex}`;
+      params.push(filters.minPrice);
+      paramIndex++;
+    }
+
+    if (filters?.maxPrice) {
+      query += ` AND p.price_per_night <= $${paramIndex}`;
+      params.push(filters.maxPrice);
+      paramIndex++;
+    }
+
+    query += ' GROUP BY p.id LIMIT 100'; // Limit for performance
+
+    const result = await Database.query<any>(query, params);
+
+    return result.map(property => ({
+      id: property.id,
+      title: property.title,
+      latitude: parseFloat(property.latitude),
+      longitude: parseFloat(property.longitude),
+      pricePerNight: parseFloat(property.price_per_night),
+      averageRating: Math.round(parseFloat(property.average_rating) * 10) / 10,
+      images: JSON.parse(property.images)
+    }));
+  }
+
+  // Get similar properties (based on location and type)
+  async getSimilarProperties(propertyId: string, limit: number = 6): Promise<Property[]> {
+    const query = `
+      WITH target_property AS (
+        SELECT city, country, property_type, price_per_night
+        FROM properties 
+        WHERE id = $1
+      )
+      SELECT p.*
+      FROM properties p, target_property tp
+      WHERE p.id != $1
+      AND p.is_active = true
+      AND (
+        (p.city = tp.city AND p.country = tp.country) OR
+        (p.country = tp.country AND p.property_type = tp.property_type) OR
+        (ABS(p.price_per_night - tp.price_per_night) < tp.price_per_night * 0.3)
+      )
+      ORDER BY 
+        CASE WHEN p.city = tp.city AND p.country = tp.country THEN 1 ELSE 2 END,
+        ABS(p.price_per_night - tp.price_per_night)
+      LIMIT $2
+    `;
+
+    const result = await Database.query<any>(query, [propertyId, limit]);
+    return result.map(property => this.formatProperty(property));
   }
 
   // Format property object
@@ -445,24 +500,24 @@ class PropertyService {
       city: property.city,
       state: property.state || undefined,
       country: property.country,
-      latitude: property.latitude || undefined,
-      longitude: property.longitude || undefined,
+      latitude: property.latitude ? parseFloat(property.latitude) : undefined,
+      longitude: property.longitude ? parseFloat(property.longitude) : undefined,
       pricePerNight: parseFloat(property.price_per_night),
       cleaningFee: parseFloat(property.cleaning_fee),
       serviceFeePercentage: parseFloat(property.service_fee_percentage),
       maxGuests: property.max_guests,
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
-      amenities: property.amenities,
-      houseRules: property.house_rules,
-      images: property.images,
+      amenities: typeof property.amenities === 'string' ? JSON.parse(property.amenities) : property.amenities,
+      houseRules: typeof property.house_rules === 'string' ? JSON.parse(property.house_rules) : property.house_rules,
+      images: typeof property.images === 'string' ? JSON.parse(property.images) : property.images,
       isActive: property.is_active,
       instantBook: property.instant_book,
       checkInTime: property.check_in_time,
       checkOutTime: property.check_out_time,
       cancellationPolicy: property.cancellation_policy,
-      createdAt: property.created_at,
-      updatedAt: property.updated_at
+      createdAt: new Date(property.created_at),
+      updatedAt: new Date(property.updated_at)
     };
   }
 }

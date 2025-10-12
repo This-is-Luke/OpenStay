@@ -113,23 +113,6 @@ export const updatePropertySchema = Joi.object({
   isActive: Joi.boolean().optional()
 });
 
-// Property search validation
-export const searchPropertiesSchema = Joi.object({
-  city: Joi.string().optional(),
-  country: Joi.string().optional(),
-  checkIn: Joi.date().iso().min('now').optional(),
-  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).optional(),
-  guests: Joi.number().integer().min(1).max(20).optional(),
-  minPrice: Joi.number().min(0).optional(),
-  maxPrice: Joi.number().min(Joi.ref('minPrice')).optional(),
-  propertyType: Joi.string()
-    .valid('apartment', 'house', 'room', 'studio', 'villa', 'cabin', 'other')
-    .optional(),
-  amenities: Joi.array().items(Joi.string()).optional(),
-  instantBook: Joi.boolean().optional(),
-  page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(50).optional()
-});
 
 // Booking creation validation
 export const createBookingSchema = Joi.object({
@@ -198,3 +181,38 @@ export const validateQuery = (schema: Joi.ObjectSchema) => {
     next();
   };
 };
+
+// Property search validation
+export const searchPropertiesSchema = Joi.object({
+  city: Joi.string().optional(),
+  country: Joi.string().optional(),
+  checkIn: Joi.date().iso().min('now').optional(),
+  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).optional(),
+  guests: Joi.number().integer().min(1).max(20).optional(),
+  minPrice: Joi.number().min(0).optional(),
+  maxPrice: Joi.number().min(Joi.ref('minPrice')).optional(),
+  propertyType: Joi.string()
+    .valid('apartment', 'house', 'room', 'studio', 'villa', 'cabin', 'other')
+    .optional(),
+  amenities: Joi.array().items(Joi.string()).optional(),
+  instantBook: Joi.boolean().optional(),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(50).optional()
+});
+
+// Map bounds validation
+export const mapBoundsSchema = Joi.object({
+  north: Joi.number().min(-90).max(90).required(),
+  south: Joi.number().min(-90).max(90).required(),
+  east: Joi.number().min(-180).max(180).required(),
+  west: Joi.number().min(-180).max(180).required(),
+  guests: Joi.number().integer().min(1).max(20).optional(),
+  minPrice: Joi.number().min(0).optional(),
+  maxPrice: Joi.number().min(Joi.ref('minPrice')).optional()
+});
+
+// Availability check validation
+export const availabilitySchema = Joi.object({
+  checkIn: Joi.date().iso().min('now').required(),
+  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).required()
+});
