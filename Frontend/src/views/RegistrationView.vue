@@ -45,17 +45,32 @@ const showSuccessModal = ref(false)
 const router = useRouter()
 
 const register = async () => {
-  // Fake API call
-  console.log('Registering user:', {
-    name: name.value,
-    surname: surname.value,
-    email: email.value,
-    password: password.value
-  })
+  try {
+    const response = await fetch('http://localhost:3001/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        firstName: name.value,
+        lastName: surname.value,
+        email: email.value,
+        password: password.value
+      })
+    })
 
-  // Simulate a successful registration
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-  showSuccessModal.value = true
+    const data = await response.json()
+
+    if (data.success) {
+      showSuccessModal.value = true
+    } else {
+      // implement more sophisticated error handling here
+      alert(`Registration failed: ${data.message}`)
+    }
+  } catch (error) {
+    console.error('An error occurred during registration:', error)
+    alert('An unexpected error occurred. Please try again.')
+  }
 }
 
 const redirectToDashboard = () => {

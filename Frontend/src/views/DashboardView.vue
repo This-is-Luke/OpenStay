@@ -2,47 +2,38 @@
   <div class="dashboard-container">
     <header class="dashboard-header">
       <h1>Explore Places</h1>
-      <button @click="showBookingsModal = true">View Bookings</button>
     </header>
     
-    <p class="subtitle">Find your next adventure with Sol-BnB.</p>
+    <p class="subtitle">Find your next adventure with OpenStay.</p>
 
     <div v-if="listings.length" class="listings-grid">
-      <router-link v-for="(listing, index) in listings" 
-                   :key="listing.id" 
-                   :to="{ name: 'listing-detail', params: { id: listing.id } }" 
-                   class="listing-link"
-                   :style="{ animationDelay: (index * 0.1) + 's' }">
+      <div v-for="(listing, index) in listings" 
+           :key="listing.id" 
+           class="listing-card-wrapper"
+           :style="{ animationDelay: (index * 0.1) + 's' }">
         <div class="listing-card card">
-          <img :src="listing.images[0]" alt="Listing image" class="listing-image">
-          <div class="listing-info">
-            <h3>{{ listing.title }}</h3>
-            <p>{{ listing.description }}</p>
-            <div class="listing-details">
-              <span class="price">S{{ listing.price }} / night</span> 
-              <span class="rating">★ {{ listing.rating }}</span>
+          <router-link :to="{ name: 'listing-detail', params: { id: listing.id } }">
+            <img :src="listing.images[0]" alt="Listing image" class="listing-image">
+            <div class="listing-info">
+              <h3>{{ listing.title }}</h3>
+              <div class="listing-details">
+                <span class="price">${{ listing.price }} / night</span> 
+                <span class="rating">★ {{ listing.rating }}</span>
+              </div>
             </div>
-          </div>
+          </router-link>
+          <router-link :to="{ name: 'reservation', params: { id: listing.id } }" class="reserve-button">Reserve</router-link>
         </div>
-      </router-link>
+      </div>
     </div>
     <div v-else>
       <p>No listings available.</p>
     </div>
-
-    <Modal :show="showBookingsModal" @close="showBookingsModal = false">
-      <h2>Your Bookings</h2>
-      <p>This is where your bookings information will be displayed.</p>
-    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import Modal from '@/components/Modal.vue'
 import { listings } from '@/data/listings'
-
-const showBookingsModal = ref(false)
 </script>
 
 <style scoped>
@@ -64,7 +55,7 @@ const showBookingsModal = ref(false)
   opacity: 0.8;
 }
 
-.listing-link {
+.listing-card-wrapper {
   text-decoration: none;
   color: inherit;
   display: block;
@@ -83,25 +74,34 @@ const showBookingsModal = ref(false)
   flex-direction: column;
   height: 100%;
   background: var(--color-white);
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: transform 0.2s;
+  padding: 0; /* Remove padding to let image and info fill */
+  border-radius: 16px; /* Rounded corners for the whole card */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden; /* Ensures child elements conform to border-radius */
+}
+
+.listing-card a {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .listing-image {
   width: 100%;
   height: 200px;
   object-fit: cover;
-  border-radius: 16px 16px 0 0;
 }
 
 .listing-card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }
 
 .listing-info {
-  padding: 1.5rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
@@ -109,6 +109,9 @@ const showBookingsModal = ref(false)
 
 .listing-info h3 {
   margin-bottom: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .listing-details {
@@ -129,5 +132,20 @@ const showBookingsModal = ref(false)
 .rating {
   font-weight: bold;
   color: var(--secondary-color);
+}
+
+.reserve-button {
+  margin: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reserve-button:hover {
+  background-color: var(--primary-color-dark);
 }
 </style>

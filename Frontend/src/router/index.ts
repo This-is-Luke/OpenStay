@@ -17,6 +17,11 @@ const router = createRouter({
       path: '/listing/:id',
       name: 'listing-detail',
       component: () => import('../views/ListingDetailView.vue')
+    },
+    {
+      path: '/reservation/:id',
+      name: 'reservation',
+      component: () => import('../views/ReservationView.vue')
     }
   ]
 })

@@ -23,7 +23,7 @@ The core innovation is a **decentralized escrow mechanism**, where guest payment
 ## 3. User Flow Explained
 
 ### 3.1 New User Registration & First Booking
-1. The user enters via `/sol-bnb` and registers via `/registration`.
+1. The user enters via `/OpenStay` and registers via `/registration`.
 2. After `register-user` action, the account is created.
 3. The user is redirected to `/dashboard/{userID}`.
 4. From the dashboard, the user proceeds to the core booking process.

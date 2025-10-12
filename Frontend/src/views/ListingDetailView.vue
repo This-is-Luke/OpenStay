@@ -8,13 +8,20 @@
       <div class="header">
         <h1>{{ listing.title }}</h1>
         <div class="meta">
-          <span class="price">S{{ listing.price }} / night</span>
+          <span class="price">${{ listing.price }} / night</span>
           <span class="rating">★ {{ listing.rating }}</span>
         </div>
       </div>
       <p class="host">Hosted by: {{ listing.host.name }}</p>
       <p class="description">{{ listing.details }}</p>
       
+      <!-- Reserve Button Section -->
+      <div class="reserve-section card">
+        <h3>Reserve your stay</h3>
+        <p class="reserve-price"><span>${{ listing.price }}</span> / night</p>
+        <router-link :to="{ name: 'reservation', params: { id: listing.id } }" class="reserve-button">Reserve</router-link>
+      </div>
+
       <div class="tabs">
         <button class="tab-button" :class="{ active: activeTab === 'reviews' }" @click="activeTab = 'reviews'">Reviews</button>
         <button class="tab-button" :class="{ active: activeTab === 'availability' }" @click="activeTab = 'availability'">Availability</button>
@@ -24,10 +31,13 @@
       <div class="tab-content">
         <div v-if="activeTab === 'reviews'">
           <h2>Reviews</h2>
-          <div v-for="(review, index) in listing.reviews" :key="index" class="review card">
-            <p><strong>{{ review.author }}</strong></p>
-            <p>{{ review.comment }}</p>
+          <div v-if="listing.reviews && listing.reviews.length">
+            <div v-for="(review, index) in listing.reviews" :key="index" class="review card">
+              <p><strong>{{ review.author }}</strong></p>
+              <p>{{ review.comment }}</p>
+            </div>
           </div>
+          <p v-else>No reviews yet.</p>
         </div>
         <div v-if="activeTab === 'availability'">
           <h2>Availability</h2>
@@ -49,7 +59,7 @@
     </div>
   </div>
   <div v-else>
-    <p>Loading listing details...</p>
+    <p>Listing not found.</p>
   </div>
 </template>
 
@@ -171,6 +181,27 @@ onMounted(() => {
     margin-bottom: 1.5rem;
 }
 
+.reserve-section {
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.reserve-price {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.reserve-price span {
+  font-weight: bold;
+}
+
+.reserve-button {
+  width: 100%;
+}
+
 .review {
   margin-bottom: 1rem;
   padding: 1rem;
@@ -194,6 +225,16 @@ onMounted(() => {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 3rem;
+  }
+  .reserve-section {
+    grid-column: 2; /* Position in the second column */
+    grid-row: 1 / span 2; /* Span across header and description rows */
+    align-self: start; /* Stick to the top */
+    position: sticky;
+    top: 80px; /* Adjust based on header height */
+  }
+  .details {
+    grid-column: 1;
   }
 }
 </style>

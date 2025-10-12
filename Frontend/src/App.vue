@@ -1,91 +1,104 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { ref } from 'vue'
+import Modal from '@/components/Modal.vue'
 
 const route = useRoute()
+const showBookingsModal = ref(false)
 </script>
 
 <template>
-  <header v-if="route.path !== '/'">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-    
-    <div class="wrapper">
+  <header>
+    <div class="header-container">
+      <RouterLink to="/dashboard" class="logo">
+        <img alt="Open Stay logo" src="../public/assets/openstaylogo.jpg" width="auto" height="42px" />
+      </RouterLink>
       <nav>
-        <RouterLink to="/dashboard">Dashboard</RouterLink>
-        <RouterLink to="/">Register</RouterLink>
+        <RouterLink v-if="route.path !== '/'" to="/dashboard">Explore</RouterLink>
+        <button v-if="route.path === '/dashboard'" @click="showBookingsModal = true" class="button-link">View Bookings</button>
+        <RouterLink to="/" class="button">Logout</RouterLink>
       </nav>
     </div>
   </header>
-  <RouterView />
+  <main>
+    <RouterView />
+  </main>
+
+  <Modal :show="showBookingsModal" @close="showBookingsModal = false">
+    <h2>Your Bookings</h2>
+    <p>This is where your bookings information will be displayed.</p>
+  </Modal>
 </template>
 
 <style scoped>
 header {
-  line-height: 1.5;
-  max-height: 100vh;
-  padding-block: 2rem;
+  background: var(--background-color-soft);
+  padding: 1rem 2rem;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .logo {
-  display: block;
-  margin: 0 auto 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-family: var(--font-secondary);
+  font-size: 1.2rem;
+  text-decoration: none;
+  color: var(--text-color);
 }
 
 nav {
-  width: 100%;
-  font-size: 1rem;
-  text-align: center;
-  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-nav a.router-link-exact-active {
-  color: var(--secondary-color);
+nav a, .button-link {
+  text-decoration: none;
+  color: var(--text-color-soft);
+  transition: color 0.2s;
+  font-weight: 500;
+  background: none;
+  border: none;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+nav a:hover,
+nav a.router-link-exact-active,
+.button-link:hover {
+  color: var(--primary-color);
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--border-color);
+nav a.button {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: background-color 0.2s;
 }
 
-nav a:first-of-type {
-  border: 0;
+nav a.button:hover {
+  background-color: var(--primary-color-dark);
+  color: white;
 }
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-    border-bottom: 0;
-    border-right: 1px solid var(--border-color);
-    margin-bottom: 0;
-    padding-block: 0;
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
+main {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 </style>
