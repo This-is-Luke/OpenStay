@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 // Import routes
 import authRoutes from './routes/auth';
 import propertyRoutes from './routes/properties';
+import bookingRoutes from './routes/bookings';
 
 // Import database
 import { healthCheck } from './database/supabase';
@@ -104,11 +105,9 @@ class App {
       }
     });
 
-    // API routes
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/properties', propertyRoutes);
-
-    // API documentation endpoint
+    this.app.use('/api/bookings', bookingRoutes);
     this.app.get('/api', (req: Request, res: Response<ApiResponse>) => {
       res.json({
         success: true,

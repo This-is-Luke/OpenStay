@@ -1,10 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Database } from '../database/supabase';
 import { AuthenticatedRequest, ApiResponse } from '../types';
-
+import supabase from '../database/supabase';
 const router = express.Router();
 
-// Simple session-based authentication middleware
+
 export const authenticateUser = async (
   req: Request,
   res: Response<ApiResponse>,
@@ -294,5 +294,59 @@ router.get('/status', (req: Request, res: Response<ApiResponse>) => {
     });
   }
 });
+
+// --- Add this new route to your auth.ts router ---
+
+// @route   POST /api/auth/register
+// @desc    Register a new user (Sign-Up)
+// @access  Public
+router.post('/register', async (req: Request, res: Response<ApiResponse>) => {
+  try {
+    // You MUST include 'supabase' client imported at the top of auth.ts
+    // Registration is a core Supabase Auth function, not a Database utility method.
+    const { email, password, firstName, lastName } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+    
+    // 1. Call the Supabase SDK sign-up function
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Pass custom user metadata (first_name, last_name)
+        // This is stored in auth.users and needs a database trigger 
+        // to populate your `public.users` table automatically.
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+        }
+      }
+    });
+
+    if (error) {
+      console.error('Supabase registration error:', error.message);
+      // Supabase errors are typically 400 (e.g., duplicate user, weak password)
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    const message = data.session 
+      ? 'Registration successful and user automatically logged in.' 
+      : 'Registration successful! Please check your email for a verification link.';
+      
+    res.status(201).json({
+      success: true,
+      message: message,
+      // The Supabase SDK handles session creation, we don't return tokens directly here.
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ success: false, message: 'Failed to register user' });
+  }
+});
+
+// export default router; // Your final export remains at the bottom
 
 export default router;
