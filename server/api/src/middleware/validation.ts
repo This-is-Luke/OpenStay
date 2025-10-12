@@ -1,156 +1,17 @@
-import Joi from 'joi';
 import { Request, Response, NextFunction } from 'express';
-import { ApiResponse, ValidationError } from '../types';
+import Joi from 'joi';
+import { ApiResponse } from '../types';
 
-// User registration validation
-export const registerSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    'string.email': 'Please provide a valid email address',
-    'any.required': 'Email is required'
-  }),
-  password: Joi.string()
-    .min(8)
-    .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\\$%\\^&\\*])'))
-    .required()
-    .messages({
-      'string.min': 'Password must be at least 8 characters long',
-      'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character',
-      'any.required': 'Password is required'
-    }),
-  firstName: Joi.string().min(2).max(50).required().messages({
-    'string.min': 'First name must be at least 2 characters long',
-    'string.max': 'First name cannot exceed 50 characters',
-    'any.required': 'First name is required'
-  }),
-  lastName: Joi.string().min(2).max(50).required().messages({
-    'string.min': 'Last name must be at least 2 characters long',
-    'string.max': 'Last name cannot exceed 50 characters',
-    'any.required': 'Last name is required'
-  }),
-  phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional().messages({
-    'string.pattern.base': 'Please provide a valid phone number'
-  }),
-  walletAddress: Joi.string().length(44).optional().messages({
-    'string.length': 'Wallet address must be exactly 44 characters'
-  }),
-  walletType: Joi.string().valid('phantom', 'solflare', 'backpack', 'sollet').optional()
-});
-
-// User login validation
-export const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().required()
-});
-
-// Wallet connection validation
-export const connectWalletSchema = Joi.object({
-  walletAddress: Joi.string().length(44).required().messages({
-    'string.length': 'Wallet address must be exactly 44 characters',
-    'any.required': 'Wallet address is required'
-  }),
-  walletType: Joi.string().valid('phantom', 'solflare', 'backpack', 'sollet').required()
-});
-
-// Profile update validation
-export const updateProfileSchema = Joi.object({
-  firstName: Joi.string().min(2).max(50).optional(),
-  lastName: Joi.string().min(2).max(50).optional(),
-  phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional(),
-  profileImage: Joi.string().uri().optional()
-});
-
-// Property creation validation
-export const createPropertySchema = Joi.object({
-  title: Joi.string().min(10).max(255).required().messages({
-    'string.min': 'Title must be at least 10 characters long',
-    'string.max': 'Title cannot exceed 255 characters'
-  }),
-  description: Joi.string().min(50).max(2000).required().messages({
-    'string.min': 'Description must be at least 50 characters long',
-    'string.max': 'Description cannot exceed 2000 characters'
-  }),
-  propertyType: Joi.string()
-    .valid('apartment', 'house', 'room', 'studio', 'villa', 'cabin', 'other')
-    .required(),
-  address: Joi.string().min(10).max(500).required(),
-  city: Joi.string().min(2).max(100).required(),
-  state: Joi.string().max(100).optional(),
-  country: Joi.string().min(2).max(100).required(),
-  latitude: Joi.number().min(-90).max(90).optional(),
-  longitude: Joi.number().min(-180).max(180).optional(),
-  pricePerNight: Joi.number().positive().precision(2).required().messages({
-    'number.positive': 'Price per night must be a positive number'
-  }),
-  cleaningFee: Joi.number().min(0).precision(2).optional(),
-  maxGuests: Joi.number().integer().min(1).max(20).required(),
-  bedrooms: Joi.number().integer().min(0).max(20).optional(),
-  bathrooms: Joi.number().integer().min(1).max(20).optional(),
-  amenities: Joi.array().items(Joi.string()).optional(),
-  houseRules: Joi.array().items(Joi.string()).optional(),
-  images: Joi.array().items(Joi.string().uri()).min(1).required().messages({
-    'array.min': 'At least one image is required'
-  }),
-  instantBook: Joi.boolean().optional(),
-  checkInTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  checkOutTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  cancellationPolicy: Joi.string().valid('flexible', 'moderate', 'strict').optional()
-});
-
-// Property update validation
-export const updatePropertySchema = Joi.object({
-  title: Joi.string().min(10).max(255).optional(),
-  description: Joi.string().min(50).max(2000).optional(),
-  pricePerNight: Joi.number().positive().precision(2).optional(),
-  cleaningFee: Joi.number().min(0).precision(2).optional(),
-  maxGuests: Joi.number().integer().min(1).max(20).optional(),
-  amenities: Joi.array().items(Joi.string()).optional(),
-  houseRules: Joi.array().items(Joi.string()).optional(),
-  images: Joi.array().items(Joi.string().uri()).optional(),
-  instantBook: Joi.boolean().optional(),
-  checkInTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  checkOutTime: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  cancellationPolicy: Joi.string().valid('flexible', 'moderate', 'strict').optional(),
-  isActive: Joi.boolean().optional()
-});
-
-
-// Booking creation validation
-export const createBookingSchema = Joi.object({
-  propertyId: Joi.string().uuid().required(),
-  checkIn: Joi.date().iso().min('now').required(),
-  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).required(),
-  guestCount: Joi.number().integer().min(1).required(),
-  guestMessage: Joi.string().max(500).optional(),
-  specialRequests: Joi.string().max(500).optional()
-});
-
-// Review creation validation
-export const createReviewSchema = Joi.object({
-  bookingId: Joi.string().uuid().required(),
-  rating: Joi.number().integer().min(1).max(5).required(),
-  title: Joi.string().max(255).optional(),
-  comment: Joi.string().max(1000).optional(),
-  cleanlinessRating: Joi.number().integer().min(1).max(5).optional(),
-  communicationRating: Joi.number().integer().min(1).max(5).optional(),
-  locationRating: Joi.number().integer().min(1).max(5).optional(),
-  valueRating: Joi.number().integer().min(1).max(5).optional()
-});
-
-// Validation middleware factory
+// Validation middleware for request body
 export const validate = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response<ApiResponse>, next: NextFunction): void => {
-    const { error } = schema.validate(req.body, { abortEarly: false });
+    const { error } = schema.validate(req.body);
     
     if (error) {
-      const errors: ValidationError[] = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message
-      }));
-      
       res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors
+        message: 'Validation error',
+        error: error.details[0].message
       });
       return;
     }
@@ -159,21 +20,16 @@ export const validate = (schema: Joi.ObjectSchema) => {
   };
 };
 
-// Query parameter validation middleware
+// Validation middleware for query parameters
 export const validateQuery = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response<ApiResponse>, next: NextFunction): void => {
-    const { error } = schema.validate(req.query, { abortEarly: false });
+    const { error } = schema.validate(req.query);
     
     if (error) {
-      const errors: ValidationError[] = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message
-      }));
-      
       res.status(400).json({
         success: false,
-        message: 'Query validation failed',
-        errors
+        message: 'Query validation error',
+        error: error.details[0].message
       });
       return;
     }
@@ -182,37 +38,77 @@ export const validateQuery = (schema: Joi.ObjectSchema) => {
   };
 };
 
-// Property search validation
+// Property validation schemas
+export const createPropertySchema = Joi.object({
+  title: Joi.string().required().min(1).max(100),
+  description: Joi.string().required().min(10).max(2000),
+  price_per_night: Joi.number().required().min(1),
+  max_guests: Joi.number().required().min(1).max(20),
+  bedrooms: Joi.number().required().min(0).max(20),
+  bathrooms: Joi.number().required().min(0).max(20),
+  property_type: Joi.string().required().valid('apartment', 'house', 'condo', 'villa', 'cabin', 'other'),
+  address: Joi.object({
+    street: Joi.string().required(),
+    city: Joi.string().required(),
+    state: Joi.string().required(),
+    country: Joi.string().required(),
+    postal_code: Joi.string().required(),
+    latitude: Joi.number().required().min(-90).max(90),
+    longitude: Joi.number().required().min(-180).max(180)
+  }).required(),
+  amenities: Joi.array().items(Joi.string()).default([]),
+  house_rules: Joi.array().items(Joi.string()).default([]),
+  images: Joi.array().items(Joi.string().uri()).min(1).required(),
+  availability: Joi.object({
+    check_in_time: Joi.string().required(),
+    check_out_time: Joi.string().required(),
+    min_stay_nights: Joi.number().min(1).default(1),
+    max_stay_nights: Joi.number().min(1).default(365)
+  }).required()
+});
+
+export const updatePropertySchema = Joi.object({
+  title: Joi.string().min(1).max(100),
+  description: Joi.string().min(10).max(2000),
+  price_per_night: Joi.number().min(1),
+  max_guests: Joi.number().min(1).max(20),
+  bedrooms: Joi.number().min(0).max(20),
+  bathrooms: Joi.number().min(0).max(20),
+  property_type: Joi.string().valid('apartment', 'house', 'condo', 'villa', 'cabin', 'other'),
+  address: Joi.object({
+    street: Joi.string(),
+    city: Joi.string(),
+    state: Joi.string(),
+    country: Joi.string(),
+    postal_code: Joi.string(),
+    latitude: Joi.number().min(-90).max(90),
+    longitude: Joi.number().min(-180).max(180)
+  }),
+  amenities: Joi.array().items(Joi.string()),
+  house_rules: Joi.array().items(Joi.string()),
+  images: Joi.array().items(Joi.string().uri()).min(1),
+  availability: Joi.object({
+    check_in_time: Joi.string(),
+    check_out_time: Joi.string(),
+    min_stay_nights: Joi.number().min(1),
+    max_stay_nights: Joi.number().min(1)
+  }),
+  is_active: Joi.boolean()
+});
+
 export const searchPropertiesSchema = Joi.object({
-  city: Joi.string().optional(),
-  country: Joi.string().optional(),
-  checkIn: Joi.date().iso().min('now').optional(),
-  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).optional(),
-  guests: Joi.number().integer().min(1).max(20).optional(),
-  minPrice: Joi.number().min(0).optional(),
-  maxPrice: Joi.number().min(Joi.ref('minPrice')).optional(),
-  propertyType: Joi.string()
-    .valid('apartment', 'house', 'room', 'studio', 'villa', 'cabin', 'other')
-    .optional(),
-  amenities: Joi.array().items(Joi.string()).optional(),
-  instantBook: Joi.boolean().optional(),
-  page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(50).optional()
-});
-
-// Map bounds validation
-export const mapBoundsSchema = Joi.object({
-  north: Joi.number().min(-90).max(90).required(),
-  south: Joi.number().min(-90).max(90).required(),
-  east: Joi.number().min(-180).max(180).required(),
-  west: Joi.number().min(-180).max(180).required(),
-  guests: Joi.number().integer().min(1).max(20).optional(),
-  minPrice: Joi.number().min(0).optional(),
-  maxPrice: Joi.number().min(Joi.ref('minPrice')).optional()
-});
-
-// Availability check validation
-export const availabilitySchema = Joi.object({
-  checkIn: Joi.date().iso().min('now').required(),
-  checkOut: Joi.date().iso().greater(Joi.ref('checkIn')).required()
+  location: Joi.string(),
+  checkIn: Joi.string().isoDate(),
+  checkOut: Joi.string().isoDate(),
+  guests: Joi.number().min(1).max(20),
+  minPrice: Joi.number().min(0),
+  maxPrice: Joi.number().min(0),
+  propertyType: Joi.string().valid('apartment', 'house', 'condo', 'villa', 'cabin', 'other'),
+  amenities: Joi.alternatives().try(
+    Joi.string(),
+    Joi.array().items(Joi.string())
+  ),
+  sortBy: Joi.string().valid('price_asc', 'price_desc', 'rating', 'newest'),
+  page: Joi.number().min(1).default(1),
+  limit: Joi.number().min(1).max(50).default(20)
 });

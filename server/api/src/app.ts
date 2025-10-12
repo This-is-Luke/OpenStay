@@ -30,7 +30,6 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    // Security middleware
     this.app.use(helmet({
       contentSecurityPolicy: {
         directives: {
@@ -145,28 +144,6 @@ class App {
       });
     });
 
-    // 404 handler for API routes
-    this.app.use('/api/*', (req: Request, res: Response<ApiResponse>) => {
-      res.status(404).json({
-        success: false,
-        message: `API endpoint ${req.method} ${req.originalUrl} not found`
-      });
-    });
-
-    // Root endpoint
-    this.app.get('/', (req: Request, res: Response<ApiResponse>) => {
-      res.json({
-        success: true,
-        message: 'Welcome to Sol-BnB API',
-        data: {
-          version: '1.0.0',
-          description: 'Decentralized Airbnb with Solana Escrow',
-          api: '/api',
-          health: '/health',
-          documentation: 'https://docs.sol-bnb.com'
-        }
-      });
-    });
   }
 
   private initializeErrorHandling(): void {
