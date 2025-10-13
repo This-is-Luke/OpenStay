@@ -298,7 +298,23 @@ class PropertyService {
       totalBookings: parseInt(property.total_bookings)
     }));
   }
+  async getAllProperties(): Promise<Property[]> {
+    const query = `
+      SELECT 
+        p.*,
+        COALESCE(AVG(r.rating), 0) as average_rating,
+        COUNT(r.id) as review_count
+      FROM properties p
+      LEFT JOIN reviews r ON p.id = r.property_id
+      WHERE p.is_active = true
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `;
 
+    const result = await Database.query<any>(query);
+
+    return result.map(property => this.formatProperty(property));
+  }
   // Update property
   async updateProperty(
     propertyId: string, 

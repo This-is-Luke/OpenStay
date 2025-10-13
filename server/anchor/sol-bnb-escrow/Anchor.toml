@@ -1,0 +1,9 @@
+[programs.localnet]
+sol_bnb_escrow = "Fg6PaFpoGXkYsidMpWxqSW3nQp9rYk1hExampleProgID"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run mocha -t 1000000 tests/**/*.ts"

@@ -7,7 +7,7 @@ import {
   updatePropertySchema,
   searchPropertiesSchema
 } from '../middleware/validation';
-import { authenticateUser, requireHost, optionalAuth } from '../middleware/auth';
+import { authenticateUser } from '../middleware/auth';
 import { 
   ApiResponse, 
   CreatePropertyRequest, 
@@ -124,7 +124,7 @@ router.get('/map', async (req: Request<{}, ApiResponse, {}, {
 // @route   GET /api/properties/:id
 // @desc    Get property details by ID
 // @access  Public (with optional auth for ownership check)
-router.get('/:id', optionalAuth, async (req: Request<{ id: string }>, res: Response<ApiResponse>) => {
+router.get('/listings/:id', async (req: Request<{ id: string }>, res: Response<ApiResponse>) => {
   try {
     const userId = (req as AuthenticatedRequest).user?.id;
     const property = await propertyService.getPropertyById(req.params.id, userId);
@@ -339,5 +339,28 @@ router.get('/my/listings', authenticateUser, async (req: AuthenticatedRequest, r
     });
   }
 });
+
+
+router.get('/listings', authenticateUser, async (req: AuthenticatedRequest, res: Response<ApiResponse>) => {
+  try {
+    const properties = await propertyService.getAllProperties();
+    
+    res.json({
+      success: true,
+      data: properties
+    });
+  } catch (error) {
+    console.error('Get my properties error:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get your properties',
+      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
+  }
+}
+);
 
 export default router;
