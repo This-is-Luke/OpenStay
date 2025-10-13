@@ -1,9 +1,19 @@
+
+[toolchain]
+
+[features]
+seeds = false
+skip-lint = false
+
 [programs.localnet]
-sol_bnb_escrow = "Fg6PaFpoGXkYsidMpWxqSW3nQp9rYk1hExampleProgID"
+workspace = "2smSv7A4vmiQrGyPmL3PF1dcSsEHFAxhMovJ1FoQhhzm"
+
+[registry]
+url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "http://local-validator:8899"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run mocha -t 1000000 tests/**/*.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

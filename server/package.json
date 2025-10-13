@@ -11,6 +11,15 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.7.2",
     "turbo": "^2.5.8"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@project-serum/anchor": "^0.26.0",
+    "chai": "^6.2.0"
   }
 }

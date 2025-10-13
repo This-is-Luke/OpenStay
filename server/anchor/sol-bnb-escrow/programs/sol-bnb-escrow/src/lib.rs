@@ -1,210 +1,122 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{system_instruction, program::invoke, program::invoke_signed};
-
-declare_id!("Fg6PaFpoGXkYsidMpWxqSW3nQp9rYk1hExampleProgID"); // replace with your real program id
 
 #[program]
-pub mod sol_bnb_escrow {
+pub mod openstay_escrow {
     use super::*;
 
-    // Initialize the escrow PDA
-    pub fn initialize_escrow(
-        ctx: Context<InitializeEscrow>,
-        booking_id: u64,
-        amount_lamports: u64,
-    ) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow_state;
-        escrow.booking_id = booking_id;
-        escrow.guest = *ctx.accounts.guest.key;
-        escrow.host = *ctx.accounts.host.key;
-        escrow.amount = amount_lamports;
-        escrow.bump = *ctx.bumps.get("escrow_state").unwrap();
-        escrow.released = false;
-        escrow.refunded = false;
-        Ok(())
+    /// Create a new property listing
+    ///
+    /// Accounts:
+    /// 0. `[writable, signer]` fee_payer: [AccountInfo] 
+    /// 1. `[writable]` listing_account: [Listing] The listing account to be created
+    /// 2. `[signer]` owner: [AccountInfo] The owner of the listing
+    /// 3. `[]` system_program: [AccountInfo] Auto-generated, for account initialization
+    ///
+    /// Data:
+    /// - listing_id: [u64] Unique identifier for the listing
+    /// - title: [String] Title of the listing
+    /// - description: [String] type
+    /// - price_per_night: [u64] Price per night in lamports or USDC decimals
+    /// - currency: [u8] Currency type (0 = SOL, 1 = USDC)
+    /// - available_dates: [Vec<u64>] Available dates (Unix timestamps)
+    /// - max_guests: [u8] Maximum number of guests allowed
+    /// - location: [String] Location of the property
+    pub fn create_listing(ctx: Context<CreateListing>, listing_id: u64, title: String, description: String, price_per_night: u64, currency: u8, available_dates: Vec<u64>, max_guests: u8, location: String) -> Result<()> {
+        create_listing::handler(ctx, listing_id, title, description, price_per_night, currency, available_dates, max_guests, location)
     }
 
-    // Deposit funds from guest to escrow PDA
-    pub fn deposit(ctx: Context<Deposit>) -> Result<()> {
-        let escrow = &ctx.accounts.escrow_state;
-        require!(!escrow.released, EscrowError::AlreadyReleased);
-
-        let ix = system_instruction::transfer(
-            ctx.accounts.guest.key,
-            ctx.accounts.escrow_state.to_account_info().key,
-            escrow.amount,
-        );
-
-        invoke(
-            &ix,
-            &[
-                ctx.accounts.guest.to_account_info(),
-                ctx.accounts.escrow_state.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-        )?;
-        Ok(())
+    /// Book a stay for a listing
+    ///
+    /// Accounts:
+    /// 0. `[writable, signer]` fee_payer: [AccountInfo] 
+    /// 1. `[writable]` listing_account: [Listing] The listing being booked
+    /// 2. `[writable]` booking_account: [Booking] The booking account to be created
+    /// 3. `[writable]` escrow_vault: [EscrowVault] The escrow vault account
+    /// 4. `[signer]` guest: [AccountInfo] The guest making the booking
+    /// 5. `[writable]` guest_token_account: [AccountInfo] Guest's token account for payment
+    /// 6. `[writable]` listing_owner_token_account: [AccountInfo] Listing owner's token account for receiving payment
+    /// 7. `[]` system_program: [AccountInfo] Auto-generated, for account initialization
+    /// 8. `[writable]` source: [AccountInfo] The source account.
+    /// 9. `[]` mint: [Mint] The token mint.
+    /// 10. `[writable]` destination: [AccountInfo] The destination account.
+    /// 11. `[signer]` authority: [AccountInfo] The source account's owner/delegate.
+    /// 12. `[]` token_program: [AccountInfo] Auto-generated, TokenProgram
+    ///
+    /// Data:
+    /// - listing_key: [Pubkey] The listing being booked
+    /// - owner: [Pubkey] The owner of the listing
+    /// - listing_id: [u64] Unique identifier for the listing
+    /// - booking_id: [u64] Unique identifier for the booking
+    /// - check_in_date: [u64] Check-in date (Unix timestamp)
+    /// - check_out_date: [u64] Check-out date (Unix timestamp)
+    /// - currency: [u8] Currency type (0 = SOL, 1 = USDC)
+    /// - amount: [u64] Amount to be paid for the stay
+    pub fn book_stay(ctx: Context<BookStay>, listing_key: Pubkey, owner: Pubkey, listing_id: u64, booking_id: u64, check_in_date: u64, check_out_date: u64, currency: u8, amount: u64) -> Result<()> {
+        book_stay::handler(ctx, listing_key, owner, listing_id, booking_id, check_in_date, check_out_date, currency, amount)
     }
 
-    // Release funds from escrow PDA to host
-    pub fn release(ctx: Context<Release>) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow_state;
-        require!(!escrow.released, EscrowError::AlreadyReleased);
-        require!(!escrow.refunded, EscrowError::AlreadyRefunded);
-
-        let amount = escrow.amount;
-        let bump = escrow.bump;
-        let seeds: &[&[u8]] = &[
-            b"escrow",
-            &escrow.booking_id.to_le_bytes(),
-            &[bump],
-        ];
-
-        let ix = system_instruction::transfer(
-            ctx.accounts.escrow_state.to_account_info().key,
-            ctx.accounts.host.key,
-            amount,
-        );
-
-        invoke_signed(
-            &ix,
-            &[
-                ctx.accounts.escrow_state.to_account_info(),
-                ctx.accounts.host.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-            &[seeds],
-        )?;
-
-        escrow.released = true;
-        Ok(())
+    /// Confirm checkout and release funds to listing owner
+    ///
+    /// Accounts:
+    /// 0. `[writable, signer]` fee_payer: [AccountInfo] 
+    /// 1. `[writable]` listing_account: [Listing] The listing being checked out from
+    /// 2. `[writable]` booking_account: [Booking] The booking being confirmed
+    /// 3. `[writable]` escrow_vault: [EscrowVault] The escrow vault account
+    /// 4. `[signer]` listing_owner: [AccountInfo] The listing owner confirming checkout
+    ///
+    /// Data:
+    /// - guest: [Pubkey] The guest who checked out
+    /// - listing_key: [Pubkey] The listing being checked out from
+    /// - owner: [Pubkey] The owner of the listing
+    /// - listing_id: [u64] Unique identifier for the listing
+    /// - booking_id: [u64] Unique identifier for the booking
+    pub fn confirm_checkout(ctx: Context<ConfirmCheckout>, guest: Pubkey, listing_key: Pubkey, owner: Pubkey, listing_id: u64, booking_id: u64) -> Result<()> {
+        confirm_checkout::handler(ctx, guest, listing_key, owner, listing_id, booking_id)
     }
 
-    // Close escrow and refund to guest
-    pub fn refund(ctx: Context<Refund>) -> Result<()> {
-        let escrow = &mut ctx.accounts.escrow_state;
-        require!(!escrow.released, EscrowError::AlreadyReleased);
-        require!(!escrow.refunded, EscrowError::AlreadyRefunded);
-
-        let amount = escrow.amount;
-        let bump = escrow.bump;
-        let seeds: &[&[u8]] = &[
-            b"escrow",
-            &escrow.booking_id.to_le_bytes(),
-            &[bump],
-        ];
-
-        let ix = system_instruction::transfer(
-            ctx.accounts.escrow_state.to_account_info().key,
-            ctx.accounts.guest.key,
-            amount,
-        );
-
-        invoke_signed(
-            &ix,
-            &[
-                ctx.accounts.escrow_state.to_account_info(),
-                ctx.accounts.guest.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-            &[seeds],
-        )?;
-
-        escrow.refunded = true;
-        Ok(())
+    /// Cancel a booking and refund guest
+    ///
+    /// Accounts:
+    /// 0. `[writable, signer]` fee_payer: [AccountInfo] 
+    /// 1. `[writable]` listing_account: [Listing] The listing being cancelled
+    /// 2. `[writable]` booking_account: [Booking] The booking being cancelled
+    /// 3. `[writable]` escrow_vault: [EscrowVault] The escrow vault account
+    /// 4. `[signer]` canceller: [AccountInfo] The account cancelling the booking (guest or owner)
+    /// 5. `[writable]` source: [AccountInfo] The source account.
+    /// 6. `[]` mint: [Mint] The token mint.
+    /// 7. `[writable]` destination: [AccountInfo] The destination account.
+    /// 8. `[signer]` authority: [AccountInfo] The source account's owner/delegate.
+    /// 9. `[]` token_program: [AccountInfo] Auto-generated, TokenProgram
+    ///
+    /// Data:
+    /// - guest: [Pubkey] The guest who made the booking
+    /// - listing_key: [Pubkey] The listing being cancelled
+    /// - owner: [Pubkey] The owner of the listing
+    /// - listing_id: [u64] Unique identifier for the listing
+    /// - booking_id: [u64] Unique identifier for the booking
+    pub fn cancel_booking(ctx: Context<CancelBooking>, guest: Pubkey, listing_key: Pubkey, owner: Pubkey, listing_id: u64, booking_id: u64) -> Result<()> {
+        cancel_booking::handler(ctx, guest, listing_key, owner, listing_id, booking_id)
     }
-}
 
-// ---------------- CONTEXTS ----------------
+    /// Get all active listings
+    ///
+    /// Accounts:
+    /// 0. `[]` listing_registry: [ListingRegistry] The registry of all listings
+    /// 1. `[]` system_program: [AccountInfo] Auto-generated, for account initialization
+    ///
+    /// Returns:
+    /// - [Vec<Pubkey>] List of all active listing pubkeys
+    pub fn get_all_listings(ctx: Context<GetAllListings>) -> Result<Vec<Pubkey>> {
+        get_all_listings::handler(ctx)
+    }
 
-#[derive(Accounts)]
-#[instruction(booking_id: u64, amount_lamports: u64)]
-pub struct InitializeEscrow<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    /// CHECK: Guest user
-    pub guest: UncheckedAccount<'info>,
-    /// CHECK: Host user
-    pub host: UncheckedAccount<'info>,
-
-    #[account(
-        init,
-        payer = payer,
-        seeds = [b"escrow", &booking_id.to_le_bytes()],
-        bump,
-        space = 8 + EscrowState::LEN,
-    )]
-    pub escrow_state: Account<'info, EscrowState>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct Deposit<'info> {
-    #[account(mut, signer)]
-    pub guest: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"escrow", &escrow_state.booking_id.to_le_bytes()],
-        bump = escrow_state.bump,
-    )]
-    pub escrow_state: Account<'info, EscrowState>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct Release<'info> {
-    pub authority: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"escrow", &escrow_state.booking_id.to_le_bytes()],
-        bump = escrow_state.bump,
-        has_one = host
-    )]
-    pub escrow_state: Account<'info, EscrowState>,
-    /// CHECK: Host gets paid
-    #[account(mut)]
-    pub host: UncheckedAccount<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct Refund<'info> {
-    pub authority: Signer<'info>,
-    #[account(
-        mut,
-        close = authority, // return rent lamports to authority
-        seeds = [b"escrow", &escrow_state.booking_id.to_le_bytes()],
-        bump = escrow_state.bump,
-    )]
-    pub escrow_state: Account<'info, EscrowState>,
-    /// CHECK: Guest receives refund
-    #[account(mut)]
-    pub guest: UncheckedAccount<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-// ---------------- STATE ----------------
-
-#[account]
-pub struct EscrowState {
-    pub booking_id: u64,
-    pub guest: Pubkey,
-    pub host: Pubkey,
-    pub amount: u64,
-    pub bump: u8,
-    pub released: bool,
-    pub refunded: bool,
-}
-
-impl EscrowState {
-    pub const LEN: usize = 8 + 32 + 32 + 8 + 1 + 1 + 1; // 83 bytes
-}
-
-#[error_code]
-pub enum EscrowError {
-    #[msg("Funds have already been released")]
-    AlreadyReleased,
-    #[msg("Funds have already been refunded")]
-    AlreadyRefunded,
+    /// Initialize the listing registry
+    ///
+    /// Accounts:
+    /// 0. `[writable]` listing_registry: [ListingRegistry] The registry of all listings
+    /// 1. `[writable, signer]` fee_payer: [AccountInfo] The account paying for initialization
+    /// 2. `[]` system_program: [AccountInfo] Auto-generated, for account initialization
+    pub fn initialize_listing_registry(ctx: Context<InitializeListingRegistry>) -> Result<()> {
+        initialize_listing_registry::handler(ctx)
+    }
 }

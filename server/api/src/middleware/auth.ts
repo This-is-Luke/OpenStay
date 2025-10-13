@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Database } from '../database/supabase';
 import { AuthenticatedRequest, ApiResponse } from '../types';
 
-// Simple session-based authentication middleware
+
 export const authenticateUser = async (
   req: Request,
   res: Response<ApiResponse>,
