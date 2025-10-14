@@ -58,9 +58,7 @@ class BookingService {
     return bookings;
   }
 
-  // ✅ Check in a booking
   async checkInBooking(userId: string, bookingId: string) {
-    // Ensure booking belongs to user
     const bookings = await Database.query<any>(
       `
       SELECT b.*, g.user_id
