@@ -43,7 +43,7 @@ pub mod sol_bnb_escrow {
         Ok(())
     }
 
-     // New instruction to allow the client to easily query the program.
+    // New instruction to allow the client to easily query the program.
     // The actual filtering and fetching logic happens on the client side.
     pub fn get_all_listings(_ctx: Context<GetAllListings>) -> Result<()> {
         Ok(())

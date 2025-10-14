@@ -9,10 +9,8 @@ import {
 
 const router = express.Router();
 
-router.post('/init', initializeEscrow);
-router.post('/deposit', depositToEscrow);
-router.post('/release', releaseEscrow);
-router.post('/refund', refundEscrow);
-router.get('/:bookingId/status', getPaymentStatus);
+
+router.post('/:listingID/:walletID/checkIn', refundEscrow);
+
 
 export default router;

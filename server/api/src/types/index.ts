@@ -76,6 +76,7 @@ export interface Property {
 }
 
 export interface CreatePropertyRequest {
+  id:number; 
   title: string;
   description: string;
   propertyType: PropertyType;
@@ -145,6 +146,11 @@ export interface ApiResponse<T = any> {
   error?: string;
   errors?: ValidationError[];
 }
+
+
+
+export interface ListingRequest {}
+
 
 export interface ValidationError {
   field: string;

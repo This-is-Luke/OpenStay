@@ -298,6 +298,8 @@ class PropertyService {
       totalBookings: parseInt(property.total_bookings)
     }));
   }
+
+  
   async getAllProperties(): Promise<Property[]> {
     const query = `
       SELECT 
@@ -406,6 +408,48 @@ class PropertyService {
     const result = await Database.query<{ is_available: boolean }>(query, [propertyId, checkIn, checkOut]);
     return result[0]?.is_available || false;
   }
+async createBooking(propertyId: number, guestId: string, checkIn: Date, checkOut: Date) {
+  const totalPrice = await this.calculatePrice(propertyId, checkIn, checkOut);
+
+  const query = `
+    INSERT INTO bookings (property_id, guest_id, check_in_date, check_out_date, total_price, status)
+    VALUES ($1, $2, $3, $4, $5, 'pending')
+    RETURNING *
+  `;
+
+  const result = await Database.query<any>(query, [
+    propertyId,
+    guestId,
+    checkIn.toISOString(),
+    checkOut.toISOString(),
+    totalPrice
+  ]);
+
+  return result[0]; // returning the newly created booking
+}
+
+async calculatePrice(propertyId: number, checkIn: Date, checkOut: Date): Promise<number> {
+  // Query the property's price per night using raw SQL
+  const query = `
+    SELECT price_per_night
+    FROM properties
+    WHERE id = $1
+    LIMIT 1
+  `;
+
+  const result = await Database.query<{ price_per_night: string }>(query, [propertyId]);
+
+  if (!result[0]) {
+    throw new Error('Property not found');
+  }
+
+  const pricePerNight = parseFloat(result[0].price_per_night);
+
+  // Calculate the number of nights
+  const nights = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24);
+
+  return nights * pricePerNight;
+}
 
   // Get properties by location (for map view)
   async getPropertiesByLocation(
@@ -536,6 +580,10 @@ class PropertyService {
       updatedAt: new Date(property.updated_at)
     };
   }
+
+ 
+
+
 }
 
 export default new PropertyService();

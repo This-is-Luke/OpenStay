@@ -41,6 +41,83 @@ class BookingService {
 
     return booking;
   }
+
+  // ✅ Get all bookings for a user
+  async getUserBookings(userId: string) {
+    const bookings = await Database.query<any>(
+      `
+      SELECT b.*, p.title AS property_title, p.address AS property_address
+      FROM bookings b
+      JOIN guests g ON b.guest_id = g.id
+      JOIN properties p ON b.property_id = p.id
+      WHERE g.user_id = $1
+      ORDER BY b.check_in_date DESC
+      `,
+      [userId]
+    );
+    return bookings;
+  }
+
+  // ✅ Check in a booking
+  async checkInBooking(userId: string, bookingId: string) {
+    // Ensure booking belongs to user
+    const bookings = await Database.query<any>(
+      `
+      SELECT b.*, g.user_id
+      FROM bookings b
+      JOIN guests g ON b.guest_id = g.id
+      WHERE b.id = $1 AND g.user_id = $2
+      `,
+      [bookingId, userId]
+    );
+
+    if (!bookings.length) throw new Error('Booking not found or unauthorized');
+
+    // Update status to 'checked_in'
+    const updated = await Database.query<any>(
+      `
+      UPDATE bookings
+      SET status = 'checked_in'
+      WHERE id = $1
+      RETURNING *
+      `,
+      [bookingId]
+    );
+
+    return updated[0];
+  }
+
+  // ✅ Delete/cancel a booking
+  async deleteBooking(userId: string, bookingId: string) {
+    // Ensure booking belongs to user and is cancellable
+    const bookings = await Database.query<any>(
+      `
+      SELECT b.*, g.user_id
+      FROM bookings b
+      JOIN guests g ON b.guest_id = g.id
+      WHERE b.id = $1 AND g.user_id = $2
+      `,
+      [bookingId, userId]
+    );
+
+    if (!bookings.length) throw new Error('Booking not found or unauthorized');
+
+    const booking = bookings[0];
+    if (['paid', 'confirmed', 'checked_in'].includes(booking.status)) {
+      throw new Error('Cannot cancel an active booking');
+    }
+
+    // Delete booking
+    await Database.query(
+      `
+      DELETE FROM bookings
+      WHERE id = $1
+      `,
+      [bookingId]
+    );
+
+    return { id: bookingId, deleted: true };
+  }
 }
 
 export default new BookingService();
