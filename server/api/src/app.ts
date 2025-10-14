@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 
 
 // Import routes
-import authRoutes from './routes/auth';
+import authRoutes from './routes/users';
 import propertyRoutes from './routes/properties';
 import bookingRoutes from './routes/bookings';
 
@@ -105,7 +105,7 @@ class App {
       }
     });
 
-    this.app.use('/api/auth', authRoutes);
+    this.app.use('/api/user', authRoutes);
     this.app.use('/api/properties', propertyRoutes);
     this.app.use('/api/bookings', bookingRoutes);
     this.app.get('/api', (req: Request, res: Response<ApiResponse>) => {

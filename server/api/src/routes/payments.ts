@@ -3,14 +3,14 @@ import {
   initializeEscrow,
   depositToEscrow,
   releaseEscrow,
-  refundEscrow,
+,
   getPaymentStatus
 } from '../controllers/paymentControllers';
 
 const router = express.Router();
 
 
-router.post('/:listingID/:walletID/checkIn', refundEscrow);
+router.post('/:listingID/:walletID/checkIn', releaseEscrow);
 
 
 export default router;

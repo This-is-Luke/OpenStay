@@ -149,6 +149,19 @@ export interface ApiResponse<T = any> {
 
 
 
+export interface SignUpUsers {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string; 
+}
+
+
+export interface SignInUsers {
+  email: string;
+  password: string;
+
+}
 export interface ListingRequest {}
 
 
