@@ -1,18 +1,21 @@
-
 [toolchain]
+anchor_version = "0.31.1"
 
 [features]
 seeds = false
 skip-lint = false
 
 [programs.localnet]
-workspace = "2smSv7A4vmiQrGyPmL3PF1dcSsEHFAxhMovJ1FoQhhzm"
+# NOTE: This line should be YOUR program ID, not the generic workspace ID.
+# It should be the ID declared in your lib.rs (TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov)
+workspace = "TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov" 
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "http://local-validator:8899"
+# 🔑 FIX: Change 'local-validator' to the standard local IP address.
+cluster = "http://127.0.0.1:8899" 
 wallet = "~/.config/solana/id.json"
 
 [scripts]
