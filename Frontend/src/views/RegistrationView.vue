@@ -22,6 +22,9 @@
         <input id="password" type="password" placeholder="Password" v-model="password" />
       </div>
       <button type="submit">Create Account</button>
+      <p class="login-link">
+        Already have an account? <router-link to="/login">Login</router-link>
+      </p>
     </form>
     <Modal :show="showSuccessModal" @close="redirectToDashboard">
       <h2>Registration Successful!</h2>
@@ -46,7 +49,7 @@ const router = useRouter()
 
 const register = async () => {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/register', {
+    const response = await fetch('http://localhost:3001/api/auth/sign-up', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -2,9 +2,13 @@
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { ref } from 'vue'
 import Modal from '@/components/Modal.vue'
+import ConnectWallet from '@/components/ConnectWallet.vue'
+import MyBookingsModal from '@/components/MyBookingsModal.vue'
+import LeaveReviewModal from '@/components/LeaveReviewModal.vue';
 
 const route = useRoute()
 const showBookingsModal = ref(false)
+const showReviewModal = ref(false)
 </script>
 
 <template>
@@ -14,8 +18,10 @@ const showBookingsModal = ref(false)
         <img alt="Open Stay logo" src="../public/assets/openstaylogo.jpg" width="auto" height="42px" />
       </RouterLink>
       <nav>
+        <ConnectWallet v-if="route.name !== 'register' && route.name !== 'login'" />
         <RouterLink v-if="route.path !== '/'" to="/dashboard">Explore</RouterLink>
         <button v-if="route.path === '/dashboard'" @click="showBookingsModal = true" class="button-link">View Bookings</button>
+        <button @click="showReviewModal = true" class="button-link">Leave a Review</button>
         <RouterLink to="/" class="button">Logout</RouterLink>
       </nav>
     </div>
@@ -24,10 +30,8 @@ const showBookingsModal = ref(false)
     <RouterView />
   </main>
 
-  <Modal :show="showBookingsModal" @close="showBookingsModal = false">
-    <h2>Your Bookings</h2>
-    <p>This is where your bookings information will be displayed.</p>
-  </Modal>
+  <MyBookingsModal :show="showBookingsModal" @close="showBookingsModal = false" />
+  <LeaveReviewModal :show="showReviewModal" @close="showReviewModal = false" />
 </template>
 
 <style scoped>

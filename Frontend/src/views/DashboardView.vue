@@ -17,8 +17,7 @@
             <div class="listing-info">
               <h3>{{ listing.title }}</h3>
               <div class="listing-details">
-                <span class="price">${{ listing.price }} / night</span> 
-                <span class="rating">★ {{ listing.rating }}</span>
+                <span class="price">${{ listing.price_per_night }} / night</span>
               </div>
             </div>
           </router-link>
@@ -33,7 +32,16 @@
 </template>
 
 <script setup lang="ts">
-import { listings } from '@/data/listings'
+import { onMounted } from 'vue'
+import { useListingsStore } from '@/stores/listings'
+import { storeToRefs } from 'pinia'
+
+const listingsStore = useListingsStore()
+const { listings } = storeToRefs(listingsStore)
+
+onMounted(() => {
+  listingsStore.fetchListings()
+})
 </script>
 
 <style scoped>

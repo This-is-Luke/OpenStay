@@ -8,17 +8,16 @@
       <div class="header">
         <h1>{{ listing.title }}</h1>
         <div class="meta">
-          <span class="price">${{ listing.price }} / night</span>
-          <span class="rating">★ {{ listing.rating }}</span>
+          <span class="price">${{ listing.price_per_night }} / night</span>
         </div>
       </div>
-      <p class="host">Hosted by: {{ listing.host.name }}</p>
+      <p class="host">Hosted by: {{ listing.host?.name }}</p>
       <p class="description">{{ listing.details }}</p>
       
       <!-- Reserve Button Section -->
       <div class="reserve-section card">
         <h3>Reserve your stay</h3>
-        <p class="reserve-price"><span>${{ listing.price }}</span> / night</p>
+        <p class="reserve-price"><span>${{ listing.price_per_night }}</span> / night</p>
         <router-link :to="{ name: 'reservation', params: { id: listing.id } }" class="reserve-button">Reserve</router-link>
       </div>
 
@@ -66,15 +65,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { listings, type Listing } from '@/data/listings'
+import { useListingsStore } from '@/stores/listings'
+import { storeToRefs } from 'pinia'
 
 const route = useRoute()
-const listing = ref<Listing | undefined>(undefined)
+const listingsStore = useListingsStore()
+const { currentListing: listing } = storeToRefs(listingsStore)
 const activeTab = ref('reviews')
 
 onMounted(() => {
-  const listingId = parseInt(route.params.id as string)
-  listing.value = listings.value.find(l => l.id === listingId)
+  const listingId = route.params.id as string
+  listingsStore.fetchListingById(listingId)
 })
 </script>
 

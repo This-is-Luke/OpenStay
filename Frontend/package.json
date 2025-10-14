@@ -14,8 +14,10 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.98.4",
     "pinia": "^3.0.3",
     "vue": "^3.5.22",
+    "vue-datepicker-next": "^1.0.3",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
