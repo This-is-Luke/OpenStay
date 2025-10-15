@@ -1,7 +1,7 @@
 # Sol-BnB Monorepo
 
 ## 1. Overview
-The **Sol-BnB** monorepo contains the source code for a full-stack accommodation booking platform that leverages the **Solana** blockchain for secure and transparent payments.
+The **OpenStay** monorepo contains the source code for a full-stack accommodation booking platform that leverages the **Solana** blockchain for secure and transparent payments.
 
 The core innovation is a **decentralized escrow mechanism**, where guest payments are held in a smart contract from the date of booking until check-in. This ensures **trustless transactions** for both guests and hosts.
 
