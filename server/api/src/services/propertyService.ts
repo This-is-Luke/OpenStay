@@ -1,4 +1,5 @@
 import { Database } from '../database/supabase';
+import * as anchor from "@coral-xyz/anchor";
 import { 
   Property, 
   CreatePropertyRequest, 
@@ -6,18 +7,57 @@ import {
   SearchPropertiesRequest,
   PaginationResponse 
 } from '../types';
+import {OpenStayProgram, OpenStayProvider, getListingPda, PRICE_LAMPORTS} from '../solana_provider/solanaProvider';
 
 class PropertyService {
-  // Create new property listing
-  async createProperty(hostId: string, propertyData: CreatePropertyRequest): Promise<Property> {
+ async createProperty(hostId: string, propertyData: CreatePropertyRequest): Promise<Property> {
     const {
-      title, description, propertyType, address, city, state, country,
+      title, hostPublicKey, description, propertyType, address, city, state, country,
       latitude, longitude, pricePerNight, cleaningFee, maxGuests,
       bedrooms, bathrooms, amenities, houseRules, images,
       instantBook, checkInTime, checkOutTime, cancellationPolicy
     } = propertyData;
+    const host = new anchor.web3.PublicKey(hostPublicKey);
+    const metadata = {
+      title,
+      description,
+      propertyType,
+      address,
+      city,
+      state,
+      country,
+      latitude,
+      longitude,
+      pricePerNight,
+      cleaningFee,
+      maxGuests,
+      bedrooms,
+      bathrooms,
+      amenities,
+      houseRules,
+      images,
+      instantBook,
+      checkInTime,
+      checkOutTime,
+      cancellationPolicy
+    };
 
-    // Prepare data for database
+    const metadataUri = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString('base64')}`;
+    const { listingPda, bump } = getListingPda(host);
+
+    try {
+      await OpenStayProgram.methods
+        .createListing(new anchor.BN(PRICE_LAMPORTS), metadataUri)
+        .accounts({
+          listing: listingPda,
+          host,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (err: any) {
+      console.error('❌ Error creating listing on Solana:', err);
+      throw new Error('Failed to create listing on Solana network.');
+    }
     const propertyDbData = {
       host_id: hostId,
       title,
@@ -36,78 +76,51 @@ class PropertyService {
       bathrooms: bathrooms || 1,
       amenities: JSON.stringify(amenities || []),
       house_rules: JSON.stringify(houseRules || []),
-      images: JSON.stringify(images),
+      images: JSON.stringify(images || []),
       instant_book: instantBook || false,
       check_in_time: checkInTime || '15:00',
       check_out_time: checkOutTime || '11:00',
-      cancellation_policy: cancellationPolicy || 'moderate'
+      cancellation_policy: cancellationPolicy || 'moderate',
+      listing_pda: listingPda.toBase58(),
+      bump,
+      metadata_uri: metadataUri
     };
 
-    // Create property
     const property = await Database.insert<any>('properties', propertyDbData);
-
-    // Update user to be a host
-    await Database.update('users', hostId, { is_host: true });
-
+    await Database.update('users', { is_host: true }, { id: hostId });
     return this.formatProperty(property);
   }
 
-  // Get property by ID with host info and ratings
-  async getPropertyById(propertyId: string, userId?: string): Promise<Property & {
-    host: {
-      firstName: string;
-      lastName: string;
-      profileImage?: string;
-      joinedDate: Date;
-    };
-    averageRating: number;
-    reviewCount: number;
-    isOwner: boolean;
-  }> {
-    // Get property with host information
-    const properties = await Database.select<any>(
-      'properties', 
-      `
-        *,
-        users!properties_host_id_fkey (
-          first_name,
-          last_name,
-          profile_image,
-          created_at
-        )
-      `,
-      { id: propertyId, is_active: true }
-    );
+  
 
-    if (properties.length === 0) {
-      throw new Error('Property not found');
-    }
 
-    const property = properties[0];
+async getPropertyById(propertyId: string): Promise<Property> {
+  // Get property with basic info
+  const properties = await Database.select<any>(
+    'properties',
+    '*',
+    { id: propertyId, is_active: true }
+  );
 
-    // Get reviews for this property
-    const reviews = await Database.select<any>('reviews', 'rating', { property_id: propertyId });
-    
-    const averageRating = reviews.length > 0 
-      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
-      : 0;
-
-    // Check if user is the host
-    const isOwner = userId ? property.host_id === userId : false;
-
-    return {
-      ...this.formatProperty(property),
-      host: {
-        firstName: property.users.first_name,
-        lastName: property.users.last_name,
-        profileImage: property.users.profile_image || undefined,
-        joinedDate: new Date(property.users.created_at)
-      },
-      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
-      reviewCount: reviews.length,
-      isOwner
-    };
+  if (properties.length === 0) {
+    throw new Error('Property not found');
   }
+
+  const property = properties[0];
+
+  // Get reviews for this property
+  const reviews = await Database.select<any>('reviews', 'rating', { property_id: propertyId });
+  
+  const averageRating = reviews.length > 0 
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+    : 0;
+
+  return {
+    ...this.formatProperty(property),
+    averageRating: Math.round(averageRating * 10) / 10,
+    reviewCount: reviews.length,
+  };
+}
 
   // Search properties with advanced filtering
   async searchProperties(searchParams: SearchPropertiesRequest): Promise<PaginationResponse<Property & {
@@ -317,7 +330,8 @@ class PropertyService {
 
     return result.map(property => this.formatProperty(property));
   }
-  // Update property
+
+
   async updateProperty(
     propertyId: string, 
     hostId: string, 
@@ -352,7 +366,7 @@ class PropertyService {
     }
 
     // Update property
-    const property = await Database.update<any>('properties', propertyId, updateFields);
+    const property = await Database.update<any>('properties', updateFields, { id: propertyId });
 
     return this.formatProperty(property);
   }
@@ -381,13 +395,13 @@ class PropertyService {
     }
 
     // Soft delete the property
-    await Database.update('properties', propertyId, { is_active: false });
+    await Database.update('properties', { is_active: false }, { id: propertyId });
 
     return { id: propertyId, deleted: true };
   }
 
   // Check property availability
-  async checkAvailability(propertyId: string, checkIn: string, checkOut: string): Promise<boolean> {
+  async checkAvailability(propertyId: string, checkIn: Date, checkOut: Date): Promise<boolean> {
     const query = `
       SELECT 
         CASE 
@@ -408,48 +422,8 @@ class PropertyService {
     const result = await Database.query<{ is_available: boolean }>(query, [propertyId, checkIn, checkOut]);
     return result[0]?.is_available || false;
   }
-async createBooking(propertyId: number, guestId: string, checkIn: Date, checkOut: Date) {
-  const totalPrice = await this.calculatePrice(propertyId, checkIn, checkOut);
 
-  const query = `
-    INSERT INTO bookings (property_id, guest_id, check_in_date, check_out_date, total_price, status)
-    VALUES ($1, $2, $3, $4, $5, 'pending')
-    RETURNING *
-  `;
 
-  const result = await Database.query<any>(query, [
-    propertyId,
-    guestId,
-    checkIn.toISOString(),
-    checkOut.toISOString(),
-    totalPrice
-  ]);
-
-  return result[0]; // returning the newly created booking
-}
-
-async calculatePrice(propertyId: number, checkIn: Date, checkOut: Date): Promise<number> {
-  // Query the property's price per night using raw SQL
-  const query = `
-    SELECT price_per_night
-    FROM properties
-    WHERE id = $1
-    LIMIT 1
-  `;
-
-  const result = await Database.query<{ price_per_night: string }>(query, [propertyId]);
-
-  if (!result[0]) {
-    throw new Error('Property not found');
-  }
-
-  const pricePerNight = parseFloat(result[0].price_per_night);
-
-  // Calculate the number of nights
-  const nights = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24);
-
-  return nights * pricePerNight;
-}
 
   // Get properties by location (for map view)
   async getPropertiesByLocation(
@@ -553,6 +527,7 @@ async calculatePrice(propertyId: number, checkIn: Date, checkOut: Date): Promise
     return {
       id: property.id,
       hostId: property.host_id,
+      hostPublicKey: property.host_public_key || '', // Add hostPublicKey, fallback to empty string if missing
       title: property.title,
       description: property.description,
       propertyType: property.property_type,
@@ -577,7 +552,9 @@ async calculatePrice(propertyId: number, checkIn: Date, checkOut: Date): Promise
       checkOutTime: property.check_out_time,
       cancellationPolicy: property.cancellation_policy,
       createdAt: new Date(property.created_at),
-      updatedAt: new Date(property.updated_at)
+      updatedAt: new Date(property.updated_at),
+      averageRating: property.average_rating !== undefined ? Math.round(parseFloat(property.average_rating) * 10) / 10 : 0,
+      reviewCount: property.review_count !== undefined ? parseInt(property.review_count) : 0
     };
   }
 

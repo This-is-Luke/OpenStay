@@ -48,13 +48,13 @@ export class Database {
         query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query as { data: T[] | null; error: any };
 
       if (error) {
         throw new Error(`Database select error: ${error.message}`);
       }
 
-      return data || [];
+      return (data ?? []) as T[];
     } catch (error) {
       console.error('Database select error:', error);
       throw error;

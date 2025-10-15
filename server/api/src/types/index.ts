@@ -47,6 +47,7 @@ export interface UpdateProfileRequest {
 // Property Types
 export interface Property {
   id: string;
+  hostPublicKey:string;
   hostId: string;
   title: string;
   description: string;
@@ -70,6 +71,8 @@ export interface Property {
   instantBook: boolean;
   checkInTime: string;
   checkOutTime: string;
+  averageRating: number;
+  reviewCount: number;
   cancellationPolicy: CancellationPolicy;
   createdAt: Date;
   updatedAt: Date;
@@ -77,6 +80,7 @@ export interface Property {
 
 export interface CreatePropertyRequest {
   id:number; 
+  hostPublicKey:string;
   title: string;
   description: string;
   propertyType: PropertyType;
@@ -147,6 +151,23 @@ export interface ApiResponse<T = any> {
   errors?: ValidationError[];
 }
 
+export interface CreateBookingRequest{
+  userId: string;
+  propertyId: string;
+  checkInDate: string;
+  checkOutDate: string;
+  guestPublicKey:string;
+  listingPda:string;
+}
+
+export interface ReserveListingRequest {
+     userId: string;
+     guestPublicKey:string; 
+     listingPda:string
+     checkIn: string;
+     checkOut: string;
+}
+
 
 
 export interface SignUpUsers {
@@ -156,6 +177,21 @@ export interface SignUpUsers {
   password: string; 
 }
 
+
+interface ReserveListingParams {
+  id: string; // The property ID from the URL like /properties/123
+}
+
+export interface ReserveListingResponse 
+{
+      listingPda: string;
+      escrowPda: string;
+      host: string;
+      price: string;
+      programId: string;
+      message: string;
+
+}
 
 export interface SignInUsers {
   email: string;

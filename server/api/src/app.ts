@@ -105,43 +105,9 @@ class App {
       }
     });
 
-    this.app.use('/api/user', authRoutes);
+    this.app.use('/api/users', authRoutes);
     this.app.use('/api/properties', propertyRoutes);
-    this.app.use('/api/bookings', bookingRoutes);
-    this.app.get('/api', (req: Request, res: Response<ApiResponse>) => {
-      res.json({
-        success: true,
-        message: 'Sol-BnB API v1.0.0',
-        data: {
-          endpoints: {
-            auth: {
-              'POST /api/auth/register': 'Register a new user',
-              'POST /api/auth/login': 'Login user',
-              'POST /api/auth/connect-wallet': 'Connect Solana wallet',
-              'POST /api/auth/disconnect-wallet': 'Disconnect wallet',
-              'GET /api/auth/profile': 'Get user profile',
-              'PUT /api/auth/profile': 'Update user profile',
-              'POST /api/auth/verify-token': 'Verify JWT token',
-              'POST /api/auth/logout': 'Logout user'
-            },
-           properties: {
-              'GET /api/properties': 'Search properties with filters',
-              'GET /api/properties/map': 'Get properties for map view with bounds',
-              'POST /api/properties': 'Create property (requires x-user-id header)',
-              'GET /api/properties/:id': 'Get property details',
-              'GET /api/properties/:id/similar': 'Get similar properties',
-              'PUT /api/properties/:id': 'Update property (requires x-user-id header)',
-              'DELETE /api/properties/:id': 'Delete property (requires x-user-id header)',
-              'GET /api/properties/:id/availability': 'Check availability for dates',
-              'GET /api/properties/host/:hostId': 'Get host properties',
-              'GET /api/properties/my/listings': 'Get my properties (requires x-user-id header)'
-            }
-          },
-          documentation: 'https://docs.sol-bnb.com',
-          support: 'support@sol-bnb.com'
-        }
-      });
-    });
+    this.app.use('/api/booking', bookingRoutes);
 
   }
 
