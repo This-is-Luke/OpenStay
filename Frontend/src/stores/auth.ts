@@ -6,7 +6,7 @@ export const useAuthStore = defineStore('auth', {
     user: null
   }),
   actions: {
-    async login(email, password) {
+    async login(email: string, password: string) {
       try {
         const response = await fetch(`http://localhost:3001/api/auth/sign-in?email=${email}&password=${password}`);
         const data = await response.json()

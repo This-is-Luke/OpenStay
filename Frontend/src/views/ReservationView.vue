@@ -38,12 +38,14 @@ const route = useRoute()
 const listingsStore = useListingsStore()
 const { currentListing: listing } = storeToRefs(listingsStore)
 const showConfirmationModal = ref(false)
-const selectedDates = ref([])
+const selectedDates = ref<Date[]>([])
 
 const formattedDates = computed(() => {
-  if (selectedDates.value.length === 2) {
+  if (selectedDates.value && selectedDates.value.length === 2) {
     const [start, end] = selectedDates.value;
-    return `${new Date(start).toLocaleDateString()} - ${new Date(end).toLocaleDateString()}`
+    if (start && end) {
+      return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`
+    }
   }
   return ''
 })
