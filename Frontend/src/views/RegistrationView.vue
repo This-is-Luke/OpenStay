@@ -48,6 +48,13 @@ const showSuccessModal = ref(false)
 const router = useRouter()
 
 const register = async () => {
+  // Temporarily bypass registration for local development
+  console.log('Bypassing registration for development purposes.');
+  showSuccessModal.value = true;
+  // Optionally, you can add a small delay to simulate network latency if needed
+  // await new Promise(resolve => setTimeout(resolve, 500));
+  return; // Exit the function after bypass
+
   try {
     const response = await fetch('http://localhost:3001/api/auth/sign-up', {
       method: 'POST',

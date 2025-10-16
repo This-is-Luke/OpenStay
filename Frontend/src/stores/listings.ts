@@ -33,7 +33,7 @@ export const useListingsStore = defineStore('listings', {
   actions: {
     async fetchListings() {
       try {
-        const response = await fetch('http://localhost:3001/api/listings')
+        const response = await fetch('http://localhost:3001/api/properties/listings')
         const data = await response.json()
         if (data.success) {
           this.listings = data.data
@@ -44,7 +44,7 @@ export const useListingsStore = defineStore('listings', {
     },
     async fetchListingById(id: string) {
       try {
-        const response = await fetch(`http://localhost:3001/api/listings/${id}`)
+        const response = await fetch(`http://localhost:3001/api/properties/listings/${id}`)
         const data = await response.json()
         if (data.success) {
           this.currentListing = data.data
