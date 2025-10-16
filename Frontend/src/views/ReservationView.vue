@@ -33,6 +33,7 @@ import 'vue-datepicker-next/index.css';
 import ConfirmationModal from '@/components/ConfirmationModal.vue'
 import { ref, computed } from 'vue';
 import { useWalletStore } from '@/stores/wallet'
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const route = useRoute()
 const listingsStore = useListingsStore()
@@ -71,6 +72,41 @@ const handleConfirm = async () => {
   showConfirmationModal.value = false
   
   try {
+    // Connect to Solana devnet
+    const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+
+    // For simplicity, let's assume the listing owner's public key is hardcoded or fetched
+    // In a real application, this would come from the listing data
+    const receiverPublicKey = new PublicKey(listing.value.hostPublicKey); 
+    const amountInSol = 1; // 1 SOL as requested
+    const amountInLamports = amountInSol * LAMPORTS_PER_SOL;
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: publicKey.value,
+        toPubkey: receiverPublicKey,
+        lamports: amountInLamports,
+      })
+    );
+
+    // Get the latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = publicKey.value;
+
+
+    if (walletStore.phantomWallet && walletStore.phantomWallet.isConnected) {
+        // Sign and send the transaction using Phantom
+        const signedTransaction = await walletStore.phantomWallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+        await connection.confirmTransaction(signature);
+        alert(`Transaction successful with signature: ${signature}`);
+    } else {
+        alert('Phantom wallet is not connected.');
+        return;
+    }
+
+
     const response = await fetch(`http://localhost:3001/api/listings/${listing.value.id}/reserve`, {
       method: 'POST',
       headers: {

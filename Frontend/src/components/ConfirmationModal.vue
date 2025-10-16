@@ -6,7 +6,7 @@
       <p><strong>Dates:</strong> {{ dates }}</p>
       <p><strong>Total Price:</strong> ${{ totalPrice }}</p>
     </div>
-    <button @click="confirm" :disabled="!publicKey">
+    <button @click="publicKey ? confirm() : connect()" :disabled="!publicKey">
       {{ publicKey ? 'Confirm and Pay' : 'Connect Wallet to Pay' }}
     </button>
   </Modal>
@@ -29,6 +29,7 @@ const emit = defineEmits(['close', 'confirm'])
 
 const walletStore = useWalletStore()
 const { publicKey } = storeToRefs(walletStore)
+const { connect } = walletStore; // Import the connect method
 
 const totalPrice = computed(() => {
   if (!props.listing || !props.dates) return 0
