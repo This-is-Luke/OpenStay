@@ -19,9 +19,10 @@ export const signUpUsers = async (req: Request, res: Response<ApiResponse>) => {
   }
 };
 
+
 export const signInUsers = async (req: Request, res: Response<ApiResponse>) => {
   try {
-    const { email, password } = req.query as { email: string; password: string };
+    const { email, password } = req.body as { email: string; password: string };
     const data = await UsersService.signIn(email, password);
     res.status(200).json({ success: true, message: 'Successfully signed in', data });
   } catch (error: any) {
