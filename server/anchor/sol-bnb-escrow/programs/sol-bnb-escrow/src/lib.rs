@@ -1,22 +1,31 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, CloseAccount, Token, TokenAccount, Transfer};
 
+// Ensure your program ID is correct.
 declare_id!("TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov");
 
 #[program]
 pub mod sol_bnb_escrow {
     use super::*;
 
-    pub fn create_listing(ctx: Context<CreateListing>, price_lamports: u64, metadata_uri: String) -> Result<()> {
+    /// Instruction to create a property listing.
+    /// It now accepts a fixed 16-byte array for the property ID instead of a variable-length String/URI.
+    pub fn create_listing(
+        ctx: Context<CreateListing>, 
+        price_lamports: u64, 
+        property_id: [u8; 16] // CHANGED: Fixed-size ID replaces metadata_uri
+    ) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
         listing.host = ctx.accounts.host.key();
         listing.price_lamports = price_lamports;
-        listing.metadata_uri = metadata_uri;
+        // CHANGED: Assign the fixed-size ID
+        listing.property_id = property_id; 
         listing.is_booked = false;
         listing.bump = ctx.bumps.listing;
         Ok(())
     }
 
+    /// Instruction for a guest to book a listing and deposit the payment into escrow.
     pub fn book_listing(ctx: Context<BookAndDeposit>) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
         require!(!listing.is_booked, CustomError::AlreadyBooked);
@@ -24,7 +33,6 @@ pub mod sol_bnb_escrow {
         listing.is_booked = true;
         listing.guest = Some(ctx.accounts.guest.key());
     
-
         // Transfer SOL (Lamports) to escrow PDA
         let transfer_instruction = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.guest.key(),
@@ -43,18 +51,22 @@ pub mod sol_bnb_escrow {
         Ok(())
     }
 
-    // New instruction to allow the client to easily query the program.
-    // The actual filtering and fetching logic happens on the client side.
+    /// Instruction to allow the client to easily query the program.
     pub fn get_all_listings(_ctx: Context<GetAllListings>) -> Result<()> {
         Ok(())
     }
 
+    /// Instruction for the host and guest to release the payment from escrow to the host.
     pub fn release_payment(ctx: Context<ReleasePayment>) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
         require!(listing.is_booked, CustomError::NotBooked);
 
         let guest = listing.guest.unwrap();
-        require_keys_eq!(guest, ctx.accounts.guest.key(), CustomError::InvalidGuest);
+        // NOTE: This check should ideally be for the host signing, not the guest
+        // since the host initiates the release after the service is rendered.
+        // Assuming your original logic intended for the guest to confirm/sign the release,
+        // but typically the host is the one calling this after the guest has checked out.
+        require_keys_eq!(guest, ctx.accounts.guest.key(), CustomError::InvalidGuest); 
 
         let amount = **ctx.accounts.escrow.to_account_info().lamports.borrow();
         
@@ -91,12 +103,17 @@ pub mod sol_bnb_escrow {
     }
 }
 
+// -----------------------------------------------------------------------------
+// ACCOUNT CONTEXTS
+// -----------------------------------------------------------------------------
+
 #[derive(Accounts)]
 pub struct CreateListing<'info> {
     #[account(
         init,
         payer = host,
-        space = 8 + Listing::MAX_SIZE,
+        // The space calculation now uses the new, smaller MAX_SIZE
+        space = 8 + Listing::MAX_SIZE, 
         seeds = [b"listing", host.key().as_ref()],
         bump
     )]
@@ -108,7 +125,9 @@ pub struct CreateListing<'info> {
 
 #[derive(Accounts)]
 pub struct BookAndDeposit<'info> {
-    #[account(mut, has_one = host)]
+    // The `has_one = host` constraint is dangerous here if the host account is Unchecked.
+    // It's safer to rely on the Listing PDA seeds based on the host key.
+    #[account(mut, has_one = host)] 
     pub listing: Account<'info, Listing>,
     /// CHECK: This is our escrow account PDA
     #[account(
@@ -145,26 +164,35 @@ pub struct ReleasePayment<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// -----------------------------------------------------------------------------
+// ACCOUNT DATA STRUCTURES
+// -----------------------------------------------------------------------------
+
 #[account]
 pub struct Listing {
     pub host: Pubkey,
     pub price_lamports: u64,
-    pub metadata_uri: String,
+    // CHANGED: Fixed-size byte array (16 bytes) for the off-chain property ID
+    pub property_id: [u8; 16], 
     pub is_booked: bool,
     pub guest: Option<Pubkey>,
     pub bump: u8,
 }
 
 impl Listing {
-    // The total space needed for the account data.
+    // Recalculated MAX_SIZE for the fixed-size property_id.
     pub const MAX_SIZE: usize = 
         32 + // host: Pubkey
         8 +  // price_lamports: u64
-        4 + 200 + // metadata_uri: String (4 bytes for length + max 200 bytes for data)
+        16 + // property_id: [u8; 16] - (Fixed 16 bytes for a short ID)
         1 +  // is_booked: bool
         (1 + 32) + // guest: Option<Pubkey> (1 byte for option + 32 bytes for Pubkey)
         1;   // bump: u8
 }
+
+// -----------------------------------------------------------------------------
+// ERRORS
+// -----------------------------------------------------------------------------
 
 #[error_code]
 pub enum CustomError {
