@@ -28,7 +28,7 @@ async signUp(email: string, password: string, firstName: string, lastName: strin
     .update({
       first_name: firstName,
       last_name: lastName,
-      wallet_address: walletAddress // 🔑 This is the key line
+      wallet_address: walletAddress 
     })
     .eq('id', authUserId)
     .select();

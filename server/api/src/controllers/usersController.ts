@@ -12,7 +12,7 @@ export const signUpUsers = async (req: Request, res: Response<ApiResponse>) => {
       ? 'Registration successful and user automatically logged in.'
       : 'Registration successful! Please check your email for a verification link.';
 
-    res.status(201).json({ success: true, message });
+    res.status(201).json({ success: true, message, data });
   } catch (error: any) {
     console.error('Registration error:', error.message);
     res.status(400).json({ success: false, message: error.message });
