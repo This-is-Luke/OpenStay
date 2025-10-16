@@ -9,6 +9,9 @@
   "instructions": [
     {
       "name": "book_listing",
+      "docs": [
+        "Instruction for a guest to book a listing and deposit the payment into escrow."
+      ],
       "discriminator": [
         224,
         62,
@@ -67,6 +70,10 @@
     },
     {
       "name": "create_listing",
+      "docs": [
+        "Instruction to create a property listing.",
+        "It now accepts a fixed 16-byte array for the property ID instead of a variable-length String/URI."
+      ],
       "discriminator": [
         18,
         168,
@@ -118,13 +125,21 @@
           "type": "u64"
         },
         {
-          "name": "metadata_uri",
-          "type": "string"
+          "name": "property_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
     {
       "name": "get_all_listings",
+      "docs": [
+        "Instruction to allow the client to easily query the program."
+      ],
       "discriminator": [
         237,
         125,
@@ -140,6 +155,9 @@
     },
     {
       "name": "release_payment",
+      "docs": [
+        "Instruction for the host and guest to release the payment from escrow to the host."
+      ],
       "discriminator": [
         24,
         34,
@@ -242,8 +260,13 @@
             "type": "u64"
           },
           {
-            "name": "metadata_uri",
-            "type": "string"
+            "name": "property_id",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           },
           {
             "name": "is_booked",

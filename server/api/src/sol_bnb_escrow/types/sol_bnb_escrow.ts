@@ -15,6 +15,9 @@ export type SolBnbEscrow = {
   "instructions": [
     {
       "name": "bookListing",
+      "docs": [
+        "Instruction for a guest to book a listing and deposit the payment into escrow."
+      ],
       "discriminator": [
         224,
         62,
@@ -73,6 +76,10 @@ export type SolBnbEscrow = {
     },
     {
       "name": "createListing",
+      "docs": [
+        "Instruction to create a property listing.",
+        "It now accepts a fixed 16-byte array for the property ID instead of a variable-length String/URI."
+      ],
       "discriminator": [
         18,
         168,
@@ -124,13 +131,21 @@ export type SolBnbEscrow = {
           "type": "u64"
         },
         {
-          "name": "metadataUri",
-          "type": "string"
+          "name": "propertyId",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
     {
       "name": "getAllListings",
+      "docs": [
+        "Instruction to allow the client to easily query the program."
+      ],
       "discriminator": [
         237,
         125,
@@ -146,6 +161,9 @@ export type SolBnbEscrow = {
     },
     {
       "name": "releasePayment",
+      "docs": [
+        "Instruction for the host and guest to release the payment from escrow to the host."
+      ],
       "discriminator": [
         24,
         34,
@@ -248,8 +266,13 @@ export type SolBnbEscrow = {
             "type": "u64"
           },
           {
-            "name": "metadataUri",
-            "type": "string"
+            "name": "propertyId",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           },
           {
             "name": "isBooked",
