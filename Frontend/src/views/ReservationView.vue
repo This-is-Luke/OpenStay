@@ -52,7 +52,7 @@ const formattedDates = computed(() => {
 })
 
 const walletStore = useWalletStore()
-const { publicKey } = storeToRefs(walletStore)
+const publicKey = walletStore.publicKey
 
 onMounted(() => {
   const listingId = route.params.id as string
@@ -64,11 +64,12 @@ const reserve = () => {
 }
 
 const handleConfirm = async () => {
-  if (!listing.value || !publicKey.value || selectedDates.value.length !== 2) {
+  if (!listing.value || !publicKey || selectedDates.value.length !== 2) {
     alert('Please select dates and connect your wallet.')
     return
   }
 
+  const fromPubkey = publicKey;
   showConfirmationModal.value = false
   
   try {
@@ -83,7 +84,7 @@ const handleConfirm = async () => {
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
-        fromPubkey: publicKey.value,
+        fromPubkey: fromPubkey,
         toPubkey: receiverPublicKey,
         lamports: amountInLamports,
       })
@@ -92,7 +93,7 @@ const handleConfirm = async () => {
     // Get the latest blockhash
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
-    transaction.feePayer = publicKey.value;
+    transaction.feePayer = fromPubkey;
 
 
     if (walletStore.phantomWallet && walletStore.phantomWallet.isConnected) {
@@ -115,7 +116,7 @@ const handleConfirm = async () => {
         // 'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        guestPublicKey: publicKey.value.toBase58(),
+        guestPublicKey: fromPubkey.toBase58(),
         checkIn: selectedDates.value[0],
         checkOut: selectedDates.value[1]
       })

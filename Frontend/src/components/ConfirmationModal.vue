@@ -17,7 +17,6 @@ import Modal from '@/components/Modal.vue'
 import { computed } from 'vue'
 import type { Listing } from '@/stores/listings'
 import { useWalletStore } from '@/stores/wallet'
-import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
   show: boolean,
@@ -28,8 +27,7 @@ const props = defineProps<{
 const emit = defineEmits(['close', 'confirm'])
 
 const walletStore = useWalletStore()
-const { publicKey } = storeToRefs(walletStore)
-const { connect } = walletStore; // Import the connect method
+const { publicKey, connect } = walletStore;
 
 const totalPrice = computed(() => {
   if (!props.listing || !props.dates) return 0

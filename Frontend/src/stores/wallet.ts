@@ -6,6 +6,8 @@ type PhantomProvider = {
   connect: () => Promise<{ publicKey: PublicKey }>;
   disconnect: () => Promise<void>;
   isPhantom: boolean;
+  isConnected: boolean; // Added isConnected
+  signTransaction: (transaction: any) => Promise<any>; // Added signTransaction
 };
 
 const getProvider = (): PhantomProvider | undefined => {
@@ -46,5 +48,6 @@ export const useWalletStore = defineStore('wallet', () => {
     publicKey,
     connect,
     disconnect,
+    phantomWallet: provider, // Exposed phantomWallet
   };
 });

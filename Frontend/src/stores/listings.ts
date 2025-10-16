@@ -16,6 +16,7 @@ export interface Listing {
   bathrooms?: number;
   amenities?: string[];
   images: string[];
+  hostPublicKey: string;
   host?: {
     name: string;
   };

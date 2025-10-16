@@ -7,10 +7,10 @@
 </template>
 
 <script setup lang="ts">
-import { useWalletStore } from '@/stores/wallet';
-import { storeToRefs } from 'pinia';
+import { useWalletStore } from '../stores/wallet';
 
 const walletStore = useWalletStore();
-const { publicKey } = storeToRefs(walletStore);
-const { connect, disconnect } = walletStore;
+const { publicKey } = walletStore; // Directly destructure, publicKey is already a ref
+const connect = walletStore.connect;
+const disconnect = walletStore.disconnect;
 </script>
