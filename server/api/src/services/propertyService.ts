@@ -108,9 +108,7 @@ class PropertyService {
       const instruction = await OpenStayProgram.methods
         .createListing(new anchor.BN(PRICE_LAMPORTS), Array.from(propertyIdBytes))
         .accounts({
-          listing: listingPda,
           host: hostPubkey,
-          systemProgram: anchor.web3.SystemProgram.programId,
         })
         .instruction(); // Return instruction, not rpc()
 
