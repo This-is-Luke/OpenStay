@@ -18,13 +18,14 @@ export const CreateABooking = async (req: Request<{}, {}, CreateBookingRequest>,
     if (checkOut <= checkIn) {
       return res.status(400).json({ success: false, message: 'Check-out date must be after check-in date' });
     }
-    const isAvailable = await propertyService.checkAvailability(propertyId, checkIn, checkOut);
-    if (!isAvailable) {
-      return res.status(400).json({ success: false, message: 'Property is not available for these dates' });
-    }
+    // const isAvailable = await propertyService.checkAvailability(propertyId, checkIn, checkOut);
+    // if (!isAvailable) {
+    //   return res.status(400).json({ success: false, message: 'Property is not available for these dates' });
+    // }
 
     const booking = await bookingService.createBooking(listingPda, guestPublicKey, userId, propertyId, checkIn, checkOut);
-
+    console.log('✅ Booking returned:');
+    console.log(JSON.stringify(booking, null, 2));
     return res.status(201).json({
       success: true,
       data: booking
@@ -42,7 +43,7 @@ export const RefundPayment = async (req: Request, res: Response<ApiResponse>) =>
     const { bookingId } = req.params;
     const { txSignature, guestPublicKey } = req.body;
 
-    const result = await bookingService.refundPayment(bookingId, txSignature, guestPublicKey);
+    const result = await bookingService.refundPayment(bookingId, txSignature);
     res.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Refund payment error:', error);
