@@ -185,26 +185,33 @@ async function main(): Promise<void> {
   const lamports = Math.round(bookingTotal * LAMPORTS_PER_SOL);
 
   // --- Book listing ON-CHAIN using book_listing ---
-  try {
-    await OpenStayProgram.methods.bookListing()
+let txSig: string;
+try {
+  txSig = await OpenStayProgram.methods.bookListing()
     .accounts({
         listing: new PublicKey(listingPda),
         guest: guestKP.publicKey
     })
     .signers([guestKP])
     .rpc();
-    console.log("✅ Booking/payment deposited on-chain via book_listing");
-  } catch (err) {
-    console.error("❌ book_listing transaction failed:", err);
-    throw err;
-  }
 
+  console.log("✅ Booking/payment deposited on-chain via book_listing");
+  console.log("🧾 Transaction signature:", txSig);
+} catch (err) {
+  console.error("❌ book_listing transaction failed:", err);
+  throw err;
+}
+
+  console.log(bookingId);
+  console.log(listingPda);
+  console.log(escrowPda.toBase58());
+  console.log(guestKP.publicKey.toBase58());
   // --- Confirm booking server-side ---
   const confirmJson = await parseJsonSafe<any>(
     await fetch(`${API_BASE}/booking/${guestDbId}/${bookingId}/confirm`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId, listingPda, escrowPda: escrowPda.toBase58(), guestPublicKey: guestKP.publicKey.toBase58() })
+      body: JSON.stringify({ bookingId,txSignature:txSig, listingPda, escrowPda: escrowPda.toBase58(), guestPublicKey: guestKP.publicKey.toBase58() })
     })
   );
   if (!confirmJson.success) throw new Error("Confirm booking failed");
