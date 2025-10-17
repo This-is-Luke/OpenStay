@@ -13,7 +13,7 @@ const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 // Database utility class
 export class Database {
-  // Generic select method
+  // Generic select method (returns multiple records)
   static async select<T>(
     table: string,
     columns: string = '*',
@@ -57,6 +57,52 @@ export class Database {
       return (data ?? []) as T[];
     } catch (error) {
       console.error('Database select error:', error);
+      throw error;
+    }
+  }
+
+  // Query method - returns multiple records (alias for select for backward compatibility)
+  static async query<T>(
+    table: string,
+    filters: Record<string, any> = {},
+    options: {
+      orderBy?: string;
+      ascending?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ): Promise<T[]> {
+    return this.select<T>(table, '*', filters, options);
+  }
+
+  // Query one method - returns a single record
+  static async queryOne<T>(
+    table: string,
+    filters: Record<string, any>
+  ): Promise<T | null> {
+    try {
+      let query = supabase.from(table).select('*');
+
+      // Apply filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query = query.eq(key, value);
+        }
+      });
+
+      const { data, error } = await query.single();
+
+      if (error) {
+        // If no rows found, return null instead of throwing
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw new Error(`Database queryOne error: ${error.message}`);
+      }
+
+      return data as T;
+    } catch (error) {
+      console.error('Database queryOne error:', error);
       throw error;
     }
   }
@@ -154,8 +200,8 @@ export class Database {
     }
   }
 
-  // Execute raw SQL query
-  static async query<T>(sql: string, params: any[] = []): Promise<T[]> {
+  // Execute raw SQL query (if you have an RPC function set up in Supabase)
+  static async rawQuery<T>(sql: string, params: any[] = []): Promise<T[]> {
     try {
       const { data, error } = await supabase.rpc('execute_sql', {
         query: sql,
@@ -169,6 +215,43 @@ export class Database {
       return data || [];
     } catch (error) {
       console.error('Database query error:', error);
+      throw error;
+    }
+  }
+
+  // Check if record exists
+  static async exists(table: string, filters: Record<string, any>): Promise<boolean> {
+    try {
+      const count = await this.count(table, filters);
+      return count > 0;
+    } catch (error) {
+      console.error('Database exists error:', error);
+      throw error;
+    }
+  }
+
+  // Upsert method (insert or update)
+  static async upsert<T>(
+    table: string,
+    data: Record<string, any>,
+    conflictColumns: string[] = []
+  ): Promise<T> {
+    try {
+      const { data: result, error } = await supabase
+        .from(table)
+        .upsert(data, {
+          onConflict: conflictColumns.join(',')
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Database upsert error: ${error.message}`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Database upsert error:', error);
       throw error;
     }
   }

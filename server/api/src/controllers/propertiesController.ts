@@ -1,15 +1,18 @@
 import express, { Request, Response } from 'express';
 import propertyService from '../services/propertyService';
-import { 
-  ApiResponse, 
-} from '../types';
+import { ApiResponse } from '../types';
+import * as anchor from "@coral-xyz/anchor";
 
+const SOLANA_NETWORK = process.env.SOLANA_RPC_URL || "http://127.0.0.1:8899";
+const connection = new anchor.web3.Connection(SOLANA_NETWORK, 'confirmed');
 
 export const CreatePropertyListing = async (req: Request, res: Response<ApiResponse>) => {
   try {
     const propertyData = req.body;
     const hostId = req.params.hostId;
-    const newProperty = await propertyService.createProperty(hostId, propertyData);
+    
+    // Pass connection to the service
+    const newProperty = await propertyService.createProperty(hostId, propertyData, connection);
 
     res.status(201).json({
       success: true,
@@ -25,17 +28,19 @@ export const CreatePropertyListing = async (req: Request, res: Response<ApiRespo
       error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
   }
-}; 
+};
+
 export const GetAllListings = async (req: Request, res: Response<ApiResponse>) => {
-  try 
-  { var properties = propertyService.getAllProperties(); 
+  try {
+    // Add await here
+    const properties = await propertyService.getAllProperties();
+    
     res.json({
       success: true,
       data: properties
     });
   } catch (error) {
     console.error('Get properties error:', error);
-    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     res.status(500).json({
@@ -43,7 +48,8 @@ export const GetAllListings = async (req: Request, res: Response<ApiResponse>) =
       message: 'Failed to get properties',
       error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
-} };
+  }
+};
 
 export const GetPropertyListingByID = async (req: Request, res: Response<ApiResponse>) => {
   try {
@@ -65,12 +71,11 @@ export const GetPropertyListingByID = async (req: Request, res: Response<ApiResp
       });
       return;
     }
+    
     res.status(500).json({
       success: false,
       message: 'Failed to get property',
       error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
-    return;
   }
 };
-

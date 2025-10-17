@@ -6,9 +6,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-# NOTE: This line should be YOUR program ID, not the generic workspace ID.
-# It should be the ID declared in your lib.rs (TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov)
-workspace = "TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov" 
+sol_bnb_escrow = "TDoetY1LKXn5vxxgkpE3keKhpRvbwHV6a2ep2Lreqov"
 
 [registry]
 url = "https://api.apr.dev"

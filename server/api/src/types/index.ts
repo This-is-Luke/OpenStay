@@ -48,6 +48,7 @@ export interface UpdateProfileRequest {
 export interface Property {
   id: string;
   hostPublicKey:string;
+  bump:any; 
   hostId: string;
   title: string;
   description: string;
@@ -73,6 +74,7 @@ export interface Property {
   checkOutTime: string;
   averageRating: number;
   reviewCount: number;
+  listingPda: number;
   cancellationPolicy: CancellationPolicy;
   createdAt: Date;
   updatedAt: Date;
